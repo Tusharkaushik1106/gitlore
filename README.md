@@ -1,4 +1,6 @@
-![gitlore logo](./public/logo.png)
+<p align="center">
+  <img src="./public/logo.png" alt="gitlore logo" width="140" />
+</p>
 
 # gitlore
 
@@ -8,6 +10,24 @@ AI-assisted repository narrator built with Next.js App Router and Gemini. Paste 
 - Analyzes GitHub repos with Gemini: elevator pitch, stack radar, hotspots, file summaries, and diagrams.
 - Surfaces: landing (`HeroLanding`), dashboard (`CockpitDashboard` + `ProjectOverview`), and workbench (`DeepDiveExplorer`) with code viewer + per-file explanations and diagrams. `OmniChat` provides contextual Q&A.
 - Enforces per-user usage metering (tokens + request counts) with UI display (`UsageIndicator`/`UsageModal`).
+
+## Example architecture diagram (Mermaid)
+```mermaid
+flowchart TD
+  User["User"] --> UI["Next.js App (Landing/Dashboard/Workbench)"]
+  UI --> Auth["NextAuth (GitHub/Google)"]
+  UI --> Analyze["/api/analyze"]
+  UI --> FileSummary["/api/file-summary"]
+  UI --> ProjectOverview["/api/project-overview"]
+  UI --> Chat["/api/chat (streaming)"]
+  Analyze --> GitHub["GitHub API"]
+  Analyze --> Embeddings["Gemini Embeddings (in-memory vector store)"]
+  ProjectOverview --> Gemini["Gemini LLM"]
+  FileSummary --> Gemini
+  Chat --> Gemini
+  ProjectOverview --> PG["Postgres diagram_cache"]
+  Usage["/api/usage"] --> PG
+```
 
 ## Architecture (high level)
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, framer-motion, lucide-react, recharts (radar), reactflow, Monaco editor, Mermaid renderer, react-resizable-panels, ReactMarkdown. Styling via utility classes in `globals.css`.
@@ -65,20 +85,3 @@ Rate limits (enforced in `tokenUsage.ts`):
 - No external vector DB integration—embeddings live in-memory.
 - Test coverage limited to landing page.
 
-## Example architecture diagram (Mermaid)
-```mermaid
-flowchart TD
-  User["User"] --> UI["Next.js App (Landing/Dashboard/Workbench)"]
-  UI --> Auth["NextAuth (GitHub/Google)"]
-  UI --> Analyze["/api/analyze"]
-  UI --> FileSummary["/api/file-summary"]
-  UI --> ProjectOverview["/api/project-overview"]
-  UI --> Chat["/api/chat (streaming)"]
-  Analyze --> GitHub["GitHub API"]
-  Analyze --> Embeddings["Gemini Embeddings (in-memory vector store)"]
-  ProjectOverview --> Gemini["Gemini LLM"]
-  FileSummary --> Gemini
-  Chat --> Gemini
-  ProjectOverview --> PG["Postgres diagram_cache"]
-  Usage["/api/usage"] --> PG
-```

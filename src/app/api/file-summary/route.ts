@@ -125,6 +125,13 @@ export async function POST(req: NextRequest) {
       const end = completion.content.lastIndexOf("}");
       const jsonSlice = completion.content.slice(start, end + 1);
       parsed = JSON.parse(jsonSlice);
+      
+      if (parsed.mermaid) {
+        parsed.mermaid = parsed.mermaid
+          .replace(/^```[a-zA-Z]*\s*/, "")
+          .replace(/```$/gm, "")
+          .trim();
+      }
     } catch {
       parsed = {
         summary:

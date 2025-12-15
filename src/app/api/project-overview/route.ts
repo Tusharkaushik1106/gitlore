@@ -208,6 +208,20 @@ export async function POST(request: NextRequest) {
       const end = completion.content.lastIndexOf("}");
       const jsonSlice = completion.content.slice(start, end + 1);
       parsed = JSON.parse(jsonSlice);
+      
+      if (parsed.mermaidArchitecture) {
+        parsed.mermaidArchitecture = parsed.mermaidArchitecture
+          .replace(/^```[a-zA-Z]*\s*/, "")
+          .replace(/```$/gm, "")
+          .trim();
+      }
+      
+      if (parsed.mermaidDataFlow) {
+        parsed.mermaidDataFlow = parsed.mermaidDataFlow
+          .replace(/^```[a-zA-Z]*\s*/, "")
+          .replace(/```$/gm, "")
+          .trim();
+      }
     } catch {
       
       parsed = {

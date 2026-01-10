@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { geminiAdapter } from '@/lib/geminiAdapter';
+import { geminiAdapter } from '@/lib/gemini_adapter';
+import type { NarrationMessage } from '@/lib/types';
 
 // 1. Handle CORS Pre-flight (The "Check" before the "Send")
 export async function OPTIONS() {
@@ -21,20 +22,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ answer: 'Auth Failed' }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } });
     }
 
-    const { query, context } = await req.json();
+    const { query, context }: { query?: string; context?: string } = await req.json();
     if (!query) return NextResponse.json({ answer: 'Ask something.' }, { headers: { 'Access-Control-Allow-Origin': '*' } });
 
-    const systemPrompt = `
-      You are the GitLore Hologram AI.
-      Answer using ONLY the provided code context.
-      Keep it under 2 sentences.
-      Context:\n${context.substring(0, 5000)}
-    `;
+    // Truncate context to prevent token overruns
+    const truncatedContext = context ? context.substring(0, 5000) : 'No context provided.';
 
-    const aiResponse = await geminiAdapter.generateText(
-      `${systemPrompt}\n\nQuestion: ${query}`,
-      { model: 'gemini-2.0-flash', maxTokens: 200 } // Using 2.0 Flash (stable)
-    );
+    const messages: NarrationMessage[] = [
+      {
+        id: 'search-prompt',
+        role: 'user',
+        content: `You are the GitLore Hologram AI.
+Answer using ONLY the provided code context.
+Keep it under 2 sentences.
+Do NOT use Markdown. Return plain text only.
+
+Context:
+${truncatedContext}
+
+Question: ${query}`,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    const completion = await geminiAdapter.chat({
+      messages,
+      config: {
+        model: 'gemini-2.5-flash',
+        maxTokens: 200,
+        streaming: false,
+      },
+    });
+
+    const aiResponse = completion.content.trim();
 
     // 3. Return with CORS Headers
     return NextResponse.json({ answer: aiResponse }, {

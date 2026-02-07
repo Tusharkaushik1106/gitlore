@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const EMBEDDING_MODEL = "text-embedding-005";
+const EMBEDDING_MODEL = "gemini-embedding-001";
 
 function getEmbeddingClient() {
   const apiKey = process.env.GEMINI_API_KEY;

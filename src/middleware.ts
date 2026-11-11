@@ -47,7 +47,7 @@ export function middleware(request: NextRequest) {
 
   // ── Production auth logic (unchanged) ────────────────────────────────────
   // Only check authentication for /api/extension routes
-  if (pathname.startsWith("/api/extension/")) {
+  if (pathname.startsWith("/api/extension/") && request.method !== "OPTIONS") {
     const extensionKey = request.headers.get("x-gitlore-extension-key");
     const expectedKey = process.env.EXTENSION_SECRET;
 

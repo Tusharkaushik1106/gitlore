@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth";
 import { fetchRawFile } from "@/lib/github";
-import { geminiAdapter } from "@/lib/gemini_adapter";
+import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
 import { checkAndRecordUsage, estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
 import { createHash } from "crypto";
@@ -34,6 +34,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const slug = /^[A-Za-z0-9._-]{1,100}$/;
+    if (
+      typeof owner !== "string" || !slug.test(owner) ||
+      typeof name !== "string" || !slug.test(name) ||
+      typeof path !== "string" || path.length > 500 || path.split("/").includes("..")
+    ) {
+      return Response.json({ error: "Invalid owner, name, or path" }, { status: 400 });
+    }
+
     let fileContent = "";
     try {
       fileContent = await fetchRawFile(owner, name, path);
@@ -49,7 +58,7 @@ export async function POST(req: NextRequest) {
         ? `${fileContent.slice(0, 16000)}\n// … truncated`
         : fileContent;
 
-    const fileHash = createHash("sha256").update(fileContent).digest("hex");
+    const fileHash = createHash("sha256").update("v2:" + fileContent).digest("hex");
     const pool = getDbPool();
 
     if (pool) {
@@ -77,14 +86,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const optimizedContent = fileContent.slice(0, 2500);
-
     const prompt = [
       "Analyze this file and return JSON:",
-      '{ "summary": "markdown overview (3-6 bullets)", "mermaid": "flowchart TD or sequenceDiagram" }',
+      '{ "summary": "markdown explanation", "mermaid": "flowchart TD or sequenceDiagram" }',
+      "The summary must explain the file well enough that a developer new to the repo understands it without reading the code.",
+      "Use these markdown sections in the summary: '## Purpose' (what the file is for and why it exists), '## How it works' (walk through the main flow step by step), '## Key pieces' (each important function, class, component or export and what it does), '## Connections' (what it imports or calls and what is likely to depend on it), '## Worth knowing' (edge cases, side effects, error handling, non-obvious decisions).",
+      "Be specific: name real identifiers from the code in backticks. Skip a section only if the file has nothing for it.",
       "Mermaid rules: valid syntax only, quote labels with spaces, max 8 nodes.",
       `File: ${path}`,
-      `Content:\n${optimizedContent}`,
+      `Content:\n${codePayload}`,
     ].join("\n");
 
     const messages: NarrationMessage[] = [
@@ -111,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     let completion;
     try {
-      completion = await geminiAdapter.chat({
+      completion = await claudeAdapter.chat({
         messages,
         config: { streaming: false },
       });
@@ -135,7 +145,7 @@ export async function POST(req: NextRequest) {
       if (isRateLimit) {
         return Response.json(
           {
-            error: errorMessage || "Gemini API rate limit exceeded. Flash free tier allows ~1500 requests per day.",
+            error: errorMessage || "Claude API rate limit exceeded. Please wait a moment and try again.",
             retryAfter: 60,
           },
           { status: 429 },
@@ -144,7 +154,7 @@ export async function POST(req: NextRequest) {
       
       return Response.json(
         {
-          error: errorMessage || "Failed to generate file summary from Gemini API.",
+          error: errorMessage || "Failed to generate file summary from Claude API.",
         },
         { status: 500 },
       );
@@ -212,7 +222,7 @@ export async function POST(req: NextRequest) {
     if (isRateLimit) {
       return Response.json(
         {
-          error: errorMessage || "Gemini API rate limit exceeded. Flash free tier allows ~1500 requests per day.",
+          error: errorMessage || "Claude API rate limit exceeded. Please wait a moment and try again.",
           retryAfter: 60,
         },
         { status: 429 },

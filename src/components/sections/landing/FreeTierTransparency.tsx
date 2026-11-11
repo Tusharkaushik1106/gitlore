@@ -38,7 +38,7 @@ function TrustCard() {
       <div className="mt-6 rounded-xl bg-fg/5 border border-fg/8 px-4 py-3">
         <p className="text-xs text-fg/40 leading-relaxed">
           Usage resets daily at midnight UTC. Token counts reflect the
-          Google Gemini 2.5 Flash tokenizer. High-usage plans coming soon.
+          Claude tokenizer (estimated). High-usage plans coming soon.
         </p>
       </div>
     </div>

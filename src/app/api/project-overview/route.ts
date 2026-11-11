@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
-import { geminiAdapter } from "@/lib/gemini_adapter";
+import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
 import { authConfig } from "@/lib/auth";
 import { getCachedDiagram, setCachedDiagram, type DiagramPayload } from "@/lib/diagramCache";
@@ -11,7 +11,8 @@ import { cleanMermaidCode } from "@/lib/utils/mermaid-cleaner";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { owner, name, repoUrl, sampleCode, fileTree, forceRefresh = false } = body;
+    const { owner, name, fileTree, forceRefresh = false } = body;
+    const sampleCode = typeof body.sampleCode === "string" ? body.sampleCode : "";
 
     const session = (await getServerSession(authConfig)) as
       | { user?: { email?: string | null; id?: string | null } }
@@ -27,6 +28,11 @@ export async function POST(request: NextRequest) {
         { error: "Missing owner or name" },
         { status: 400 }
       );
+    }
+
+    const slug = /^[A-Za-z0-9._-]{1,100}$/;
+    if (typeof owner !== "string" || !slug.test(owner) || typeof name !== "string" || !slug.test(name)) {
+      return Response.json({ error: "Invalid owner or name" }, { status: 400 });
     }
 
     const cacheKey = `${userId}:${owner}/${name}`;
@@ -61,12 +67,15 @@ export async function POST(request: NextRequest) {
     } catch {
     }
 
-    const fileTreeSummary = fileTree
-      ?.slice(0, 30)
-      .map((f: { path: string; language: string }) => `${f.path} (${f.language})`)
-      .join("\n") || "";
+    const fileTreeSummary = Array.isArray(fileTree)
+      ? fileTree
+          .slice(0, 30)
+          .map((f: { path?: unknown; language?: unknown }) =>
+            `${String(f?.path ?? "").slice(0, 200)} (${String(f?.language ?? "").slice(0, 20)})`)
+          .join("\n")
+      : "";
 
-    const repoUrlDisplay = repoUrl || `https://github.com/${owner}/${name}`;
+    const repoUrlDisplay = `https://github.com/${owner}/${name}`;
 
     const prompt = [
       "You are gitlore, analyzing an entire codebase to provide a comprehensive project overview.",
@@ -160,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     let completion;
     try {
-      completion = await geminiAdapter.chat({
+      completion = await claudeAdapter.chat({
         messages,
         config: { streaming: false },
       });
@@ -183,7 +192,7 @@ export async function POST(request: NextRequest) {
       if (isRateLimit) {
         return Response.json(
           {
-            error: errorMessage || "Gemini API rate limit exceeded. The free tier allows 20 requests per day.",
+            error: errorMessage || "Claude API rate limit exceeded. Please wait a moment and try again.",
             retryAfter: 60,
           },
           { status: 429 }
@@ -192,7 +201,7 @@ export async function POST(request: NextRequest) {
 
       return Response.json(
         {
-          error: errorMessage || "Failed to generate project overview from Gemini API.",
+          error: errorMessage || "Failed to generate project overview from Claude API.",
         },
         { status: 500 }
       );

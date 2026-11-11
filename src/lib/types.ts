@@ -65,7 +65,7 @@ export interface NarrationMessage {
 }
 
 export interface LLMModelConfig {
-  provider: "gemini";
+  provider: "anthropic";
   model: string;
   temperature?: number;
   maxTokens?: number;

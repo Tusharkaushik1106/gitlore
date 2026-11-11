@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
-import { geminiAdapter } from "@/lib/gemini_adapter";
+import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
 import crypto from "crypto";
+import { hasExtensionKey, extensionUsageDenied } from "@/lib/extensionAuth";
+import { estimateTokens } from "@/lib/tokenUsage";
 
 export const runtime = "nodejs";
 
@@ -20,15 +22,15 @@ function minifyCode(code: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const extensionKey = req.headers.get("x-gitlore-extension-key");
-    const expectedKey = process.env.EXTENSION_SECRET;
-
-    if (!extensionKey || extensionKey !== expectedKey) {
+    if (!hasExtensionKey(req)) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { fileContent, filePath }: { fileContent?: string; filePath?: string } =
-      await req.json();
+    const body: { fileContent?: string; filePath?: string } = await req.json();
+    // Bound what gets minified, hashed and placed in the prompt.
+    const fileContent =
+      typeof body.fileContent === "string" ? body.fileContent.slice(0, 200_000) : undefined;
+    const filePath = typeof body.filePath === "string" ? body.filePath.slice(0, 300) : undefined;
 
     console.log("Analyze Request:", filePath, "Length:", fileContent?.length);
 
@@ -54,6 +56,11 @@ export async function POST(req: NextRequest) {
 
     // Truncate minified content to prevent token limit issues
     const truncatedContent = cleanCode.substring(0, 4000);
+
+    const denied = await extensionUsageDenied(req, estimateTokens(truncatedContent) + 500);
+    if (denied) {
+      return Response.json({ error: denied.reason, retryAfter: denied.retryAfter }, { status: 429 });
+    }
 
     const messages: NarrationMessage[] = [
       {
@@ -83,11 +90,9 @@ ${truncatedContent}${cleanCode.length > 4000 ? "\n[... truncated for brevity]" :
       },
     ];
 
-    const completion = await geminiAdapter.chat({
+    const completion = await claudeAdapter.chat({
       messages,
       config: {
-        model: "gemini-3.6-flash",
-        maxTokens: 1000,
         streaming: false,
       },
     });

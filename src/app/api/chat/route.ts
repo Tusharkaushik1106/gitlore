@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth";
-import { geminiAdapter } from "@/lib/gemini_adapter";
+import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage, NarrationContext, LLMResponseChunk } from "@/lib/types";
 import { inMemoryVectorStoreAdapter } from "@/lib/vector_store_adapter";
 import { checkAndRecordUsage, estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
@@ -18,8 +18,21 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { question, repoId, context, fileContent }: { question: string; repoId?: string; context?: NarrationContext; fileContent?: string } =
+  const body: { question: string; repoId?: string; context?: NarrationContext; fileContent?: string } =
     await req.json();
+  const { question } = body;
+  const repoId = typeof body.repoId === "string" ? body.repoId.slice(0, 201) : undefined;
+  const fileContent = typeof body.fileContent === "string" ? body.fileContent : undefined;
+  const clip = (value: unknown) => (typeof value === "string" ? value.slice(0, 300) : undefined);
+  const context: NarrationContext | undefined =
+    body.context && ["file", "symbol", "repo"].includes(body.context.type)
+      ? {
+          type: body.context.type,
+          path: clip(body.context.path),
+          symbolName: clip(body.context.symbolName),
+          language: clip(body.context.language)?.slice(0, 30),
+        }
+      : undefined;
 
   if (!question || typeof question !== "string") {
     return Response.json({ error: "Missing question" }, { status: 400 });
@@ -113,7 +126,7 @@ export async function POST(req: NextRequest) {
 
   (async () => {
     try {
-      await geminiAdapter.chat({
+      await claudeAdapter.chat({
         messages,
         context,
         config: { streaming: true },
@@ -132,15 +145,14 @@ export async function POST(req: NextRequest) {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      let userMessage = "\n\n[gitlore] Sorry, something went wrong while talking to Gemini.";
+      let userMessage = "\n\n[gitlore] Sorry, something went wrong while talking to Claude.";
       
       
       if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("rate limit")) {
         userMessage = 
           "\n\n[gitlore] ⚠️ Rate limit exceeded. " +
-          "The Gemini API free tier allows 20 requests per day. " +
-          "Please wait ~60 seconds and try again, or upgrade your API plan. " +
-          "See https://ai.google.dev/gemini-api/docs/rate-limits for more info.";
+          "The Claude API is busy or your rate limit was hit. " +
+          "Please wait ~60 seconds and try again.";
       }
       
       await writer.write(encoder.encode(userMessage));

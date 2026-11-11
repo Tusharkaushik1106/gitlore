@@ -113,7 +113,7 @@ export function OmniChat() {
         content:
           error instanceof Error
             ? `Error: ${error.message}`
-            : "I couldn't reach the chat API. Please check your network and GEMINI_API_KEY configuration.",
+            : "I couldn't reach the chat API. Please check your network and ANTHROPIC_API_KEY configuration.",
         createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);

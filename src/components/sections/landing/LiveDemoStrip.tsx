@@ -74,7 +74,7 @@ export function LiveDemoStrip() {
                 POST endpoint that validates the incoming repository URL or ZIP
                 payload, enforces per-user rate and daily quotas via
                 <span className="font-mono text-tomato-jam/80"> checkQuota()</span>,
-                then streams Gemini-generated analysis chunks back to the client
+                then streams Claude-generated analysis chunks back to the client
                 using a <span className="font-mono text-metallic-gold/80">TransformStream</span>.
               </p>
             </div>

@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
-import { geminiAdapter } from "@/lib/gemini_adapter";
+import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
+import { hasExtensionKey, extensionUsageDenied } from "@/lib/extensionAuth";
+import { estimateTokens } from "@/lib/tokenUsage";
 
 export const runtime = "nodejs";
 
@@ -9,17 +11,9 @@ export async function POST(req: NextRequest) {
   
   try {
     // 1. Safe Authentication Check
-    try {
-      const extensionKey = req.headers.get("x-gitlore-extension-key");
-      const expectedKey = process.env.EXTENSION_SECRET;
-
-      if (!extensionKey || extensionKey !== expectedKey) {
-        console.log('Error: Unauthorized request');
-        return Response.json({ score: 0, reason: 'Unauthorized access.' });
-      }
-    } catch (authError) {
-      console.error('Auth check error:', authError);
-      return Response.json({ score: 0, reason: 'Authentication failed.' });
+    if (!hasExtensionKey(req)) {
+      console.log('Error: Unauthorized request');
+      return Response.json({ score: 0, reason: 'Unauthorized access.' }, { status: 401 });
     }
 
     // 2. Safe Body Parsing
@@ -43,7 +37,12 @@ export async function POST(req: NextRequest) {
       return Response.json({ score: 0, reason: 'Invalid request body.' });
     }
 
-    // 3. Call Gemini with explicit JSON instructions
+    const denied = await extensionUsageDenied(req, estimateTokens(functionCode) + 500);
+    if (denied) {
+      return Response.json({ score: 0, reason: denied.reason }, { status: 429 });
+    }
+
+    // 3. Call Claude with explicit JSON instructions
     let aiResponse: string;
     try {
       const messages: NarrationMessage[] = [
@@ -63,11 +62,9 @@ ${functionCode}
         },
       ];
 
-      const completion = await geminiAdapter.chat({
+      const completion = await claudeAdapter.chat({
         messages,
         config: {
-          model: "gemini-3.6-flash",
-          maxTokens: 1000,
           streaming: false,
         },
       });

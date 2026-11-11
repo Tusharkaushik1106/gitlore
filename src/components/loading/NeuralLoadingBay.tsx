@@ -58,9 +58,8 @@ export function NeuralLoadingBay() {
           if (res.status === 429) {
             const retryAfter = data.retryAfter || 60;
             throw new Error(
-              `Rate limit exceeded. The Gemini API free tier allows 20 requests per day. ` +
-              `Please wait ${retryAfter} seconds and try again, or upgrade your API plan. ` +
-              `Visit https://ai.google.dev/gemini-api/docs/rate-limits for more information.`
+              `Rate limit exceeded. ` +
+              `Please wait ${retryAfter} seconds and try again.`
             );
           }
           throw new Error(data.error || "Failed to analyze repository");
@@ -292,7 +291,7 @@ export function NeuralLoadingBay() {
             <p className="mb-2 text-[11px] font-semibold text-fg/45">Live context</p>
             <ul className="space-y-1 text-[11px] text-fg/35">
               <li>· Repo: {analysis.owner}/{analysis.name}</li>
-              <li>· Model: gemini-3.6-flash</li>
+              <li>· Model: claude-haiku-5-5</li>
               <li>· Hotspots: {analysis.hotspots.length || 3} candidate files</li>
             </ul>
           </motion.div>

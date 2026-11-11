@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
-import { geminiAdapter } from "@/lib/gemini_adapter";
+import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
+import { hasExtensionKey, extensionUsageDenied } from "@/lib/extensionAuth";
+import { estimateTokens } from "@/lib/tokenUsage";
 
 export const runtime = "nodejs";
 
@@ -21,17 +23,21 @@ function calculateComplexityScore(codeSnippet: string): number {
 
 export async function POST(req: NextRequest) {
   try {
-    const extensionKey = req.headers.get("x-gitlore-extension-key");
-    const expectedKey = process.env.EXTENSION_SECRET;
-
-    if (!extensionKey || extensionKey !== expectedKey) {
+    if (!hasExtensionKey(req)) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { codeSnippet }: { codeSnippet?: string } = await req.json();
+    const body: { codeSnippet?: string } = await req.json();
 
-    if (!codeSnippet || typeof codeSnippet !== "string") {
+    if (!body.codeSnippet || typeof body.codeSnippet !== "string") {
       return Response.json({ error: "Missing codeSnippet" }, { status: 400 });
+    }
+
+    const codeSnippet = body.codeSnippet.slice(0, 5000);
+
+    const denied = await extensionUsageDenied(req, estimateTokens(codeSnippet) + 500);
+    if (denied) {
+      return Response.json({ error: denied.reason, retryAfter: denied.retryAfter }, { status: 429 });
     }
 
     const complexityScore = calculateComplexityScore(codeSnippet);
@@ -45,16 +51,14 @@ export async function POST(req: NextRequest) {
       },
     ];
 
-    const completion = await geminiAdapter.chat({
+    const completion = await claudeAdapter.chat({
       messages,
       config: {
-        model: "gemini-3.6-flash",
-        maxTokens: 150,
         streaming: false,
       },
     });
 
-    // Parse JSON response from Gemini
+    // Parse JSON response from Claude
     let riskData: { riskLabel: string; riskColor: string; summary: string };
     try {
       const jsonMatch = completion.content.match(/\{[\s\S]*\}/);

@@ -1,7 +1,7 @@
 export const config = {
-  gemini: {
-    apiKey: process.env.GEMINI_API_KEY,
-    model: process.env.GEMINI_MODEL ?? "models/gemini-1.5-flash-002",
+  anthropic: {
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    model: process.env.ANTHROPIC_MODEL ?? "claude-haiku-5-5",
   },
   github: {
     clientId: process.env.GITHUB_CLIENT_ID,

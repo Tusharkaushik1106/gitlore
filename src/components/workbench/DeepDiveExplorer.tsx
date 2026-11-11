@@ -480,10 +480,9 @@ export function DeepDiveExplorer() {
         const data = await res.json().catch(() => ({}));
 
         if (res.status === 429) {
-          const retryAfter = data.retryAfter || 60;
           throw new Error(
-            `Rate limit exceeded. ` +
-              `Please wait ${retryAfter} seconds or try again later.`,
+            data.error ||
+              `Rate limit exceeded. Please wait ${data.retryAfter || 60} seconds or try again later.`,
           );
         }
         throw new Error(data.error || "Failed to load file summary.");

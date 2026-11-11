@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
 import { getCachedDiagram, setCachedDiagram, type DiagramPayload } from "@/lib/diagramCache";
-import { fetchDiagram, saveDiagram } from "@/lib/diagramStore";
 import { estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
 import { getClientId, reserveUsage } from "@/lib/usageGuard";
 import { cleanMermaidCode } from "@/lib/utils/mermaid-cleaner";
@@ -32,12 +31,6 @@ export async function POST(request: NextRequest) {
       const cached = getCachedDiagram(cacheKey);
       if (cached) {
         return Response.json(cached);
-      }
-
-      const persisted = await fetchDiagram(userId, owner, name);
-      if (persisted) {
-        setCachedDiagram(cacheKey, persisted);
-        return Response.json(persisted);
       }
     }
 
@@ -235,7 +228,6 @@ export async function POST(request: NextRequest) {
     }
 
     setCachedDiagram(cacheKey, parsed);
-    await saveDiagram(userId, owner, name, parsed);
 
     return Response.json(parsed);
   } catch (error: unknown) {

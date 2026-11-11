@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { motion } from "framer-motion";
+import ReactMarkdown from "react-markdown";
 import { useRepoContext } from "@/context/RepoContext";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -146,16 +147,34 @@ export function CockpitDashboard() {
 
                   <div className="relative z-10 space-y-2.5 max-w-2xl text-sm leading-relaxed">
                     <div className="rounded-xl bg-fg/[0.03] p-3 ring-1 ring-fg/10">
-                      <p className="text-sm text-fg/80 leading-relaxed">
-                        {analysis?.elevatorPitch ? (
-                          analysis.elevatorPitch
-                        ) : (
-                          <>
-                            <span className="font-semibold text-tomato-jam">gitlore</span>{" "}
-                            is a Claude-powered cockpit for understanding large codebases. Paste a GitHub URL from the home screen to see a live elevator pitch for that repository here.
-                          </>
-                        )}
-                      </p>
+                      {analysis?.elevatorPitch ? (
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => (
+                              <p className="text-sm text-fg/85 leading-relaxed [&:not(:first-child)]:mt-2.5">{children}</p>
+                            ),
+                            ul: ({ children }) => <ul className="mt-3 space-y-1.5">{children}</ul>,
+                            li: ({ children }) => (
+                              <li className="flex gap-2 text-[13px] leading-relaxed text-fg/70">
+                                <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-tomato-jam/70" />
+                                <span>{children}</span>
+                              </li>
+                            ),
+                            strong: ({ children }) => <strong className="font-semibold text-fg/90">{children}</strong>,
+                            em: ({ children }) => <em className="not-italic text-[11px] text-fg/40">{children}</em>,
+                            code: ({ children }) => (
+                              <code className="rounded bg-fg/10 px-1 py-0.5 font-mono text-[12px] text-fg/80">{children}</code>
+                            ),
+                          }}
+                        >
+                          {analysis.elevatorPitch}
+                        </ReactMarkdown>
+                      ) : (
+                        <p className="text-sm text-fg/80 leading-relaxed">
+                          <span className="font-semibold text-tomato-jam">gitlore</span>{" "}
+                          is a Claude-powered cockpit for understanding large codebases. Paste a GitHub URL from the home screen to see a live elevator pitch for that repository here.
+                        </p>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-xl bg-tomato-jam/8 p-2.5 ring-1 ring-tomato-jam/15">

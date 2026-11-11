@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "crypto";
-import { checkAndRecordUsage } from "@/lib/tokenUsage";
+import { reserveUsage } from "@/lib/usageGuard";
 
 function sha256(value: string): Buffer {
   return createHash("sha256").update(value).digest();
@@ -14,18 +14,15 @@ export function hasExtensionKey(req: Request): boolean {
 }
 
 /**
- * Reserves usage for an extension caller. Resolves to null when the request
- * may proceed, or to the reason it was refused.
+ * Reserves usage for an extension caller, from the same per-visitor allowance
+ * and site-wide budget the website uses. Resolves to null when the request may
+ * proceed, or to the reason it was refused.
  */
 export async function extensionUsageDenied(
   req: Request,
   estimatedTokens: number,
 ): Promise<{ reason: string; retryAfter?: number } | null> {
-  // ponytail: the extension key is shared by every install, so usage is metered
-  // per client IP. x-forwarded-for is only trustworthy behind a proxy that sets
-  // it (Vercel does); move to per-user extension tokens if abuse shows up.
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const usage = await checkAndRecordUsage(`ext:${ip}`, estimatedTokens);
+  const usage = await reserveUsage(req, estimatedTokens);
   if (usage.allowed) return null;
   return { reason: usage.reason || "Usage limit exceeded", retryAfter: usage.retryAfter };
 }

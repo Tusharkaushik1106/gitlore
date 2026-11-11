@@ -3,10 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { AuthButton } from "@/components/auth/AuthButton";
 import { LayoutDashboard, Code2, GitFork, ArrowRight, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +46,6 @@ const MARKETING_LINKS = [
 ];
 
 function MarketingNav() {
-  const { data: session } = useSession();
   const pathname = usePathname();
   const [scrolled,   setScrolled]   = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -132,12 +129,6 @@ function MarketingNav() {
             })}
           </div>
 
-          <div className="hidden md:block mx-2 h-4 w-px shrink-0 bg-fg/10" />
-
-          {/* Actions */}
-          <div className="hidden md:flex items-center gap-1">
-            <AuthButton />
-          </div>
 
           {/* Primary CTA */}
           <Link
@@ -149,10 +140,10 @@ function MarketingNav() {
               "transition-all duration-150",
               "hover:bg-tomato-jam/85 hover:shadow-lg hover:shadow-tomato-jam/35",
             )}
-            aria-label={session ? "Go to dashboard" : "Sign in and analyze a repo"}
+            aria-label="Go to dashboard"
           >
             <GitFork className="h-3.5 w-3.5" />
-            <span>{session ? "Dashboard" : "Get started"}</span>
+            <span>Get started</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
 
@@ -225,11 +216,8 @@ function MarketingNav() {
                 className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white bg-tomato-jam"
               >
                 <GitFork className="h-4 w-4" />
-                {session ? "Dashboard" : "Get started"}
+                Get started
               </Link>
-              <div className="flex items-center justify-center gap-2">
-                <AuthButton />
-              </div>
             </motion.div>
           </motion.div>
         )}
@@ -312,12 +300,6 @@ function AppNav() {
             })}
           </div>
 
-          <div className="hidden md:block mx-2 h-4 w-px shrink-0 bg-fg/10" />
-
-          {/* Actions */}
-          <div className="hidden md:flex items-center gap-1">
-            <AuthButton />
-          </div>
 
           {/* Mobile hamburger */}
           <button
@@ -382,14 +364,6 @@ function AppNav() {
                 </motion.div>
               ))}
             </div>
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.18, duration: 0.2 }}
-              className="shrink-0 border-t border-fg/8 px-4 py-5"
-            >
-              <AuthButton />
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -404,10 +378,7 @@ function AppNav() {
 export function Header() {
   const pathname = usePathname();
 
-  if (
-    pathname === "/loading" ||
-    pathname?.startsWith("/api/auth/signin")
-  ) {
+  if (pathname === "/loading") {
     return null;
   }
 

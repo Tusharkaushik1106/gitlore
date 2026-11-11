@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useSession } from "next-auth/react";
 import { Zap, X, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -19,27 +18,15 @@ interface UsageModalProps {
 }
 
 export function UsageModal({ isOpen, onClose }: UsageModalProps) {
-  const { data: session } = useSession();
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const fetchUsage = useCallback(async (showRefreshing = false) => {
-    if (!session?.user) {
-      setLoading(false);
-      return;
-    }
-
-    const userId = session.user.email || (session.user as { id?: string }).id;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
     if (showRefreshing) setRefreshing(true);
     try {
-      const res = await fetch(`/api/usage?userId=${encodeURIComponent(userId)}&t=${Date.now()}`);
+      const res = await fetch(`/api/usage?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setUsage(data);
@@ -50,14 +37,14 @@ export function UsageModal({ isOpen, onClose }: UsageModalProps) {
       setLoading(false);
       if (showRefreshing) setRefreshing(false);
     }
-  }, [session]);
+  }, []);
 
   useEffect(() => {
-    if (!isOpen || !session?.user) return;
+    if (!isOpen) return;
     fetchUsage();
     const interval = setInterval(() => fetchUsage(), 5000);
     return () => clearInterval(interval);
-  }, [isOpen, session, fetchUsage]);
+  }, [isOpen, fetchUsage]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -92,8 +79,6 @@ export function UsageModal({ isOpen, onClose }: UsageModalProps) {
       requestAnimationFrame(() => closeButtonRef.current?.focus());
     }
   }, [isOpen]);
-
-  if (!session?.user) return null;
 
   const tokenPercent  = usage ? (usage.tokensUsed   / 50000) * 100 : 0;
   const requestPercent = usage ? (usage.requestCount / 100)   * 100 : 0;

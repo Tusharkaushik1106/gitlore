@@ -84,7 +84,7 @@ export function FreeTierTransparency() {
           <span className="text-tomato-jam">Really.</span>
         </>
       }
-      body="No wizard. No trial expiry countdown. Sign in with GitHub and start analyzing immediately — here is exactly what you get:"
+      body="No wizard. No trial expiry countdown. Paste a repo URL and start analyzing immediately — here is exactly what you get:"
       leftSlot={<IncludesBody />}
       rightPanel={<TrustCard />}
     />

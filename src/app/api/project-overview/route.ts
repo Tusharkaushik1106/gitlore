@@ -1,11 +1,10 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
 import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
-import { authConfig } from "@/lib/auth";
 import { getCachedDiagram, setCachedDiagram, type DiagramPayload } from "@/lib/diagramCache";
 import { fetchDiagram, saveDiagram } from "@/lib/diagramStore";
-import { checkAndRecordUsage, estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
+import { estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
+import { getClientId, reserveUsage } from "@/lib/usageGuard";
 import { cleanMermaidCode } from "@/lib/utils/mermaid-cleaner";
 
 export async function POST(request: NextRequest) {
@@ -14,14 +13,7 @@ export async function POST(request: NextRequest) {
     const { owner, name, fileTree, forceRefresh = false } = body;
     const sampleCode = typeof body.sampleCode === "string" ? body.sampleCode : "";
 
-    const session = (await getServerSession(authConfig)) as
-      | { user?: { email?: string | null; id?: string | null } }
-      | null;
-    const userId = session?.user?.email || session?.user?.id;
-
-    if (!userId) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const userId = getClientId(request);
 
     if (!owner || !name) {
       return Response.json(
@@ -156,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     const estimatedInputTokens = estimateTokens(prompt);
     const estimatedTokens = estimatedInputTokens + 2000; // Buffer for response
-    const usageCheck = await checkAndRecordUsage(userId, estimatedTokens);
+    const usageCheck = await reserveUsage(request, estimatedTokens);
     if (!usageCheck.allowed) {
       return Response.json(
         {

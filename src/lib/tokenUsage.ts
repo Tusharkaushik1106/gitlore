@@ -124,8 +124,12 @@ const DENIED_UNAVAILABLE = {
  */
 export async function checkAndRecordUsage(
   userId: string,
-  estimatedTokens: number
+  estimatedTokens: number,
+  limits: { dailyTokens?: number; dailyRequests?: number; perMinute?: number } = {}
 ): Promise<{ allowed: boolean; reason?: string; retryAfter?: number }> {
+  const dailyTokens = limits.dailyTokens ?? DAILY_TOKEN_LIMIT;
+  const dailyRequests = limits.dailyRequests ?? DAILY_REQUEST_LIMIT;
+  const perMinute = limits.perMinute ?? RATE_LIMIT_REQUESTS;
   const client = getPool();
   if (!client) {
     if (process.env.NODE_ENV === "production") {
@@ -136,10 +140,10 @@ export async function checkAndRecordUsage(
   }
 
   const tokens = Math.max(0, Math.ceil(estimatedTokens));
-  if (!Number.isFinite(tokens) || tokens > DAILY_TOKEN_LIMIT) {
+  if (!Number.isFinite(tokens) || tokens > dailyTokens) {
     return {
       allowed: false,
-      reason: `Request too large. A single request may use at most ${DAILY_TOKEN_LIMIT} tokens.`,
+      reason: `Request too large. A single request may use at most ${dailyTokens} tokens.`,
     };
   }
 
@@ -185,7 +189,7 @@ export async function checkAndRecordUsage(
          AND tokens_used + $2 <= $3
          AND request_count < $4
          AND rate_limit_count < $5`,
-      [userId, tokens, DAILY_TOKEN_LIMIT, DAILY_REQUEST_LIMIT, RATE_LIMIT_REQUESTS]
+      [userId, tokens, dailyTokens, dailyRequests, perMinute]
     );
 
     if (reserved.rowCount) {
@@ -201,22 +205,22 @@ export async function checkAndRecordUsage(
     );
     const record = rows[0] ?? {};
 
-    if ((record.rate_limit_count ?? 0) >= RATE_LIMIT_REQUESTS) {
+    if ((record.rate_limit_count ?? 0) >= perMinute) {
       return {
         allowed: false,
-        reason: `Rate limit exceeded. Maximum ${RATE_LIMIT_REQUESTS} requests per ${RATE_LIMIT_WINDOW} seconds.`,
+        reason: `Rate limit exceeded. Maximum ${perMinute} requests per ${RATE_LIMIT_WINDOW} seconds.`,
         retryAfter: Math.max(1, Math.ceil(RATE_LIMIT_WINDOW - Number(record.window_age ?? 0))),
       };
     }
-    if ((record.request_count ?? 0) >= DAILY_REQUEST_LIMIT) {
+    if ((record.request_count ?? 0) >= dailyRequests) {
       return {
         allowed: false,
-        reason: `Daily request limit exceeded. You've made ${record.request_count}/${DAILY_REQUEST_LIMIT} requests today.`,
+        reason: `Daily request limit exceeded. You've made ${record.request_count}/${dailyRequests} requests today.`,
       };
     }
     return {
       allowed: false,
-      reason: `Daily token limit exceeded. You've used ${record.tokens_used ?? 0}/${DAILY_TOKEN_LIMIT} tokens today.`,
+      reason: `Daily token limit exceeded. You've used ${record.tokens_used ?? 0}/${dailyTokens} tokens today.`,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

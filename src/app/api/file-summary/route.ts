@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/lib/auth";
 import { fetchRawFile } from "@/lib/github";
 import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage } from "@/lib/types";
-import { checkAndRecordUsage, estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
+import { estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
+import { getClientId, reserveUsage } from "@/lib/usageGuard";
 import { createHash } from "crypto";
 import { ensureSummaryCacheTable, getDbPool } from "@/lib/db/schema";
 
@@ -12,14 +11,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = (await getServerSession(authConfig)) as
-      | { user?: { email?: string | null; id?: string | null } }
-      | null;
-    const userId = session?.user?.email || session?.user?.id;
-
-    if (!userId) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const userId = getClientId(req);
 
     const {
       owner,
@@ -108,7 +100,7 @@ export async function POST(req: NextRequest) {
 
     const estimatedInputTokens = estimateTokens(prompt);
     const estimatedTokens = estimatedInputTokens + 1000;
-    const usageCheck = await checkAndRecordUsage(userId, estimatedTokens);
+    const usageCheck = await reserveUsage(req, estimatedTokens);
     if (!usageCheck.allowed) {
       return Response.json(
         {

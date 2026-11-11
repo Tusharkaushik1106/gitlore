@@ -5,7 +5,6 @@ import { OmniChat } from "@/components/chat/OmniChat";
 import { RepoProvider } from "@/context/RepoContext";
 import { FileProvider } from "@/context/FileContext";
 import { Header } from "@/components/layout/Header";
-import { SessionProvider } from "@/components/auth/SessionProvider";
 import { ThemeProvider, themeScript } from "@/components/providers/ThemeProvider";
 import { ParticleCanvas } from "@/components/background/ParticleCanvas";
 import { GlobalBackgroundLoader } from "@/components/background/GlobalBackgroundLoader";
@@ -63,7 +62,6 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ThemeProvider>
-          <SessionProvider>
             <RepoProvider>
               <FileProvider>
                 {/*
@@ -128,7 +126,6 @@ export default function RootLayout({
                 </div>
               </FileProvider>
             </RepoProvider>
-          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -1,22 +1,14 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/lib/auth";
 import { claudeAdapter } from "@/lib/claude_adapter";
 import type { NarrationMessage, NarrationContext, LLMResponseChunk } from "@/lib/types";
 import { inMemoryVectorStoreAdapter } from "@/lib/vector_store_adapter";
-import { checkAndRecordUsage, estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
+import { estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
+import { getClientId, reserveUsage } from "@/lib/usageGuard";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const session = (await getServerSession(authConfig)) as
-    | { user?: { email?: string | null; id?: string | null } }
-    | null;
-  const userId = session?.user?.email || session?.user?.id;
-
-  if (!userId) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = getClientId(req);
 
   const body: { question: string; repoId?: string; context?: NarrationContext; fileContent?: string } =
     await req.json();
@@ -108,7 +100,7 @@ export async function POST(req: NextRequest) {
   const estimatedInputTokens = estimateTokens(promptText);
   const estimatedTokens = estimatedInputTokens + 1000;
 
-  const usageCheck = await checkAndRecordUsage(userId, estimatedTokens);
+  const usageCheck = await reserveUsage(req, estimatedTokens);
   if (!usageCheck.allowed) {
     return Response.json(
       {

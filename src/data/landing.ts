@@ -168,7 +168,7 @@ export const PERSONAS: FeatureItem[] = [
 export const INTEGRATIONS: ProofLogo[] = [
   { name: "GitHub",        abbr: "GH"  },
   { name: "VS Code",       abbr: "VSC" },
-  { name: "Google Gemini", abbr: "GEM" },
+  { name: "Claude",        abbr: "CLD" },
   { name: "PostgreSQL",    abbr: "PG"  },
 ];
 
@@ -244,7 +244,7 @@ export const TRUST_SIGNALS: string[] = [
 export const MOCK_FILES: MockFile[] = [
   { name: "src/api/analyze/route.ts",   active: true  },
   { name: "src/context/RepoContext.tsx", active: false },
-  { name: "src/lib/gemini_adapter.ts",  active: false },
+  { name: "src/lib/claude_adapter.ts",  active: false },
   { name: "src/components/chat/",       active: false },
   { name: "src/middleware.ts",          active: false },
 ];
@@ -256,7 +256,7 @@ export const MOCK_QA: MockQA[] = [
   },
   {
     q: "Which files own the streaming logic?",
-    a: "gemini_adapter.ts emits chunks; the route handler pipes them through a TransformStream to the client.",
+    a: "claude_adapter.ts emits chunks; the route handler pipes them through a TransformStream to the client.",
   },
 ];
 

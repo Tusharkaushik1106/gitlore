@@ -4,10 +4,10 @@
 
 # gitlore
 
-AI-assisted repository narrator built with Next.js App Router and Gemini. Paste a GitHub URL, sign in, and gitlore delivers repo-level overviews, hotspots, file-by-file summaries, and Mermaid diagrams, plus a RAG-backed chat tied to the file you are viewing.
+AI-assisted repository narrator built with Next.js App Router and Claude. Paste a GitHub URL, sign in, and gitlore delivers repo-level overviews, hotspots, file-by-file summaries, and Mermaid diagrams, plus a RAG-backed chat tied to the file you are viewing.
 
 ## What the app does
-- Analyzes GitHub repos with Gemini: elevator pitch, stack radar, hotspots, file summaries, and diagrams.
+- Analyzes GitHub repos with Claude: elevator pitch, stack radar, hotspots, file summaries, and diagrams.
 - Surfaces: landing (`HeroLanding`), dashboard (`CockpitDashboard` + `ProjectOverview`), and workbench (`DeepDiveExplorer`) with code viewer + per-file explanations and diagrams. `OmniChat` provides contextual Q&A.
 - Enforces per-user usage metering (tokens + request counts) with UI display (`UsageIndicator`/`UsageModal`).
 
@@ -21,10 +21,10 @@ flowchart TD
   UI --> ProjectOverview["/api/project-overview"]
   UI --> Chat["/api/chat (streaming)"]
   Analyze --> GitHub["GitHub API"]
-  Analyze --> Embeddings["Gemini Embeddings (in-memory vector store)"]
-  ProjectOverview --> Gemini["Gemini LLM"]
-  FileSummary --> Gemini
-  Chat --> Gemini
+  Analyze --> Embeddings["Local embeddings (in-memory vector store)"]
+  ProjectOverview --> Claude["Claude LLM"]
+  FileSummary --> Claude
+  Chat --> Claude
   ProjectOverview --> PG["Postgres diagram_cache"]
   Usage["/api/usage"] --> PG
 ```
@@ -32,14 +32,14 @@ flowchart TD
 ## Architecture (high level)
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, framer-motion, lucide-react, recharts (radar), reactflow, Monaco editor, Mermaid renderer, react-resizable-panels, ReactMarkdown. Styling via utility classes in `globals.css`.
 - **Auth:** NextAuth (GitHub/Google) with custom sign-in page at `/api/auth/signin`.
-- **Backend APIs:** Next.js route handlers (see below) orchestrate GitHub fetches, Gemini calls, caching, and token accounting.
-- **Data:** Postgres (optional) for `diagram_cache` and `token_usage`; in-memory diagram cache; in-memory vector store using Gemini embeddings (`text-embedding-004`).
+- **Backend APIs:** Next.js route handlers (see below) orchestrate GitHub fetches, Claude calls, caching, and token accounting.
+- **Data:** Postgres (optional) for `diagram_cache` and `token_usage`; in-memory diagram cache; in-memory vector store using local hashed bag-of-words vectors.
 
 ## Key flows & API routes
-- `POST /api/analyze` — Validate GitHub URL, fetch repo metadata/README, fetch a subset of files, build hotspots, embed code snippets, and ask Gemini for elevator pitch + stack radar. Returns `repoId`, sample/full file tree, hotspots, and sample code.
-- `POST /api/project-overview` — Given owner/name/tree/sampleCode, prompts Gemini for overview, architecture, key components, data flow, tech stack, dependencies, and two Mermaid diagrams. Caches in memory and persists to Postgres via `diagramStore`.
-- `POST /api/file-summary` — Fetches a raw file from GitHub, truncates, and prompts Gemini for markdown summary + Mermaid diagram.
-- `POST /api/chat` — Streams Gemini responses; can include RAG context from the in-memory vector store and the current file content.
+- `POST /api/analyze` — Validate GitHub URL, fetch repo metadata/README, fetch a subset of files, build hotspots, embed code snippets, and ask Claude for elevator pitch + stack radar. Returns `repoId`, sample/full file tree, hotspots, and sample code.
+- `POST /api/project-overview` — Given owner/name/tree/sampleCode, prompts Claude for overview, architecture, key components, data flow, tech stack, dependencies, and two Mermaid diagrams. Caches in memory and persists to Postgres via `diagramStore`.
+- `POST /api/file-summary` — Fetches a raw file from GitHub, truncates, and prompts Claude for markdown summary + Mermaid diagram.
+- `POST /api/chat` — Streams Claude responses; can include RAG context from the in-memory vector store and the current file content.
 - `POST /api/index-repo` — Stubbed placeholder; returns a queued `jobId`.
 - `GET /api/usage` — Returns per-user token/request usage from Postgres `token_usage`.
 
@@ -50,13 +50,13 @@ flowchart TD
 
 ## Tech stack & dependencies
 - Next.js 16 (App Router), React 19, TypeScript.
-- NextAuth for OAuth; Google Gemini API (`@google/generative-ai`) for chat/summarization/embeddings.
+- NextAuth for OAuth; Claude API (`@anthropic-ai/sdk`) for chat/summarization; embeddings are a local hashed bag-of-words.
 - Postgres via `pg`; recharts, mermaid, reactflow, framer-motion, lucide-react, Monaco editor, ReactMarkdown, react-resizable-panels.
 
 ## Environment & config
 Required for core features:
-- `GEMINI_API_KEY` — Gemini API key.
-- `GEMINI_MODEL` — Optional; defaults to `gemini-3.6-flash`.
+- `ANTHROPIC_API_KEY` — Claude API key.
+- `ANTHROPIC_MODEL` — Optional; defaults to `claude-haiku-5-5`.
 - `GITHUB_PAT` — Optional; raises GitHub rate limits.
 - `DATABASE_URL` — Optional; enables Postgres persistence for diagrams/usage.
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`
@@ -76,7 +76,7 @@ Rate limits (enforced in `tokenUsage.ts`):
 - `src/app` — App Router pages and API routes (`api/analyze`, `api/project-overview`, `api/file-summary`, `api/chat`, `api/usage`, auth).
 - `src/components` — UI: landing, dashboard, workbench, chat, diagrams, auth, layout.
 - `src/context` — `RepoContext`, `FileContext`.
-- `src/lib` — Adapters for Gemini, GitHub, embeddings, token usage, diagram cache/store, vector store.
+- `src/lib` — Adapters for Claude, GitHub, embeddings, token usage, diagram cache/store, vector store.
 - `__tests__/landing.test.tsx` — Basic landing test (needs more coverage).
 
 ## Notable gaps / TODOs

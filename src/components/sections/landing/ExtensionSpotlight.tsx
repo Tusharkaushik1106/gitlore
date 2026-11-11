@@ -69,7 +69,7 @@ function EditorMockup() {
           Early-return guard. If the user has exceeded their daily or rate-limit
           quota (checked via{" "}
           <span className="text-tomato-jam/80 font-mono">checkQuota()</span>),
-          returns a 429 before any Gemini call is made — keeping costs bounded.
+          returns a 429 before any Claude call is made — keeping costs bounded.
         </p>
       </div>
     </div>

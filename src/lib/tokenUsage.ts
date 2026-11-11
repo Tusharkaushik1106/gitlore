@@ -110,113 +110,122 @@ async function ensureTable(): Promise<void> {
   }
 }
 
+const DENIED_UNAVAILABLE = {
+  allowed: false,
+  reason: "Usage tracking is unavailable right now. Please try again shortly.",
+  retryAfter: 60,
+};
+
+/**
+ * Reserves `estimatedTokens` against the caller's daily and per-minute limits.
+ * The reservation is a single conditional UPDATE, so parallel requests cannot
+ * both pass a check that only one of them fits under. If usage cannot be
+ * tracked the request is refused, except in local development without a database.
+ */
 export async function checkAndRecordUsage(
   userId: string,
   estimatedTokens: number
 ): Promise<{ allowed: boolean; reason?: string; retryAfter?: number }> {
   const client = getPool();
   if (!client) {
-    console.warn("No database connection - token limits not enforced");
+    if (process.env.NODE_ENV === "production") {
+      console.error("DATABASE_URL is not set - refusing LLM request because limits cannot be enforced");
+      return DENIED_UNAVAILABLE;
+    }
     return { allowed: true };
   }
 
-  try {
-    await ensureTable();
-  } catch (error) {
-    console.warn("Database unavailable - token limits not enforced:", error instanceof Error ? error.message : String(error));
-    return { allowed: true };
+  const tokens = Math.max(0, Math.ceil(estimatedTokens));
+  if (!Number.isFinite(tokens) || tokens > DAILY_TOKEN_LIMIT) {
+    return {
+      allowed: false,
+      reason: `Request too large. A single request may use at most ${DAILY_TOKEN_LIMIT} tokens.`,
+    };
   }
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let usage;
+
   try {
-    usage = await client.query(
-      `SELECT tokens_used, request_count, last_reset, last_request, rate_limit_window_start, rate_limit_count 
+    await ensureTable();
+
+    await client.query(
+      `INSERT INTO token_usage (user_id, last_reset, rate_limit_window_start)
+       VALUES ($1, $2, now())
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userId, today]
+    );
+
+    // Roll the daily counters and the per-minute window forward when they have expired.
+    await client.query(
+      `UPDATE token_usage SET
+         tokens_used = CASE WHEN last_reset < $2 THEN 0 ELSE tokens_used END,
+         request_count = CASE WHEN last_reset < $2 THEN 0 ELSE request_count END,
+         last_reset = GREATEST(last_reset, $2),
+         rate_limit_count = CASE
+           WHEN rate_limit_window_start IS NULL OR rate_limit_window_start < now() - make_interval(secs => $3)
+           THEN 0 ELSE rate_limit_count END,
+         rate_limit_window_start = CASE
+           WHEN rate_limit_window_start IS NULL OR rate_limit_window_start < now() - make_interval(secs => $3)
+           THEN now() ELSE rate_limit_window_start END
+       WHERE user_id = $1
+         AND (last_reset < $2
+              OR rate_limit_window_start IS NULL
+              OR rate_limit_window_start < now() - make_interval(secs => $3))`,
+      [userId, today, RATE_LIMIT_WINDOW]
+    );
+
+    const reserved = await client.query(
+      `UPDATE token_usage SET
+         tokens_used = tokens_used + $2,
+         request_count = request_count + 1,
+         last_request = now(),
+         rate_limit_count = rate_limit_count + 1
+       WHERE user_id = $1
+         AND tokens_used + $2 <= $3
+         AND request_count < $4
+         AND rate_limit_count < $5`,
+      [userId, tokens, DAILY_TOKEN_LIMIT, DAILY_REQUEST_LIMIT, RATE_LIMIT_REQUESTS]
+    );
+
+    if (reserved.rowCount) {
+      return { allowed: true };
+    }
+
+    // Refused: read the counters back only to explain which limit was hit.
+    const { rows } = await client.query(
+      `SELECT tokens_used, request_count, rate_limit_count,
+              EXTRACT(EPOCH FROM (now() - rate_limit_window_start)) AS window_age
        FROM token_usage WHERE user_id = $1`,
       [userId]
     );
+    const record = rows[0] ?? {};
 
-    if (usage.rows.length === 0) {
-      await client.query(
-        `INSERT INTO token_usage (user_id, tokens_used, request_count, last_reset, rate_limit_window_start) 
-         VALUES ($1, 0, 0, $2, $2)`,
-        [userId, today]
-      );
-      usage = await client.query(
-        `SELECT tokens_used, request_count, last_reset, last_request, rate_limit_window_start, rate_limit_count 
-         FROM token_usage WHERE user_id = $1`,
-        [userId]
-      );
-    }
-  } catch (error) {
-    console.warn("Database query failed - allowing request:", error instanceof Error ? error.message : String(error));
-    return { allowed: true };
-  }
-
-  const record = usage.rows[0];
-  const lastReset = new Date(record.last_reset);
-
-  try {
-    if (lastReset < today) {
-      await client.query(
-        `UPDATE token_usage 
-         SET tokens_used = 0, request_count = 0, last_reset = $1, rate_limit_window_start = $1, rate_limit_count = 0 
-         WHERE user_id = $2`,
-        [today, userId]
-      );
-    }
-
-    const windowStart = record.rate_limit_window_start 
-      ? new Date(record.rate_limit_window_start) 
-      : new Date(now.getTime() - RATE_LIMIT_WINDOW * 1000);
-    
-    const windowAge = (now.getTime() - windowStart.getTime()) / 1000;
-    
-    if (windowAge > RATE_LIMIT_WINDOW) {
-      await client.query(
-        `UPDATE token_usage SET rate_limit_window_start = $1, rate_limit_count = 0 WHERE user_id = $2`,
-        [now, userId]
-      );
-    } else if (record.rate_limit_count >= RATE_LIMIT_REQUESTS) {
-      const retryAfter = Math.ceil(RATE_LIMIT_WINDOW - windowAge);
+    if ((record.rate_limit_count ?? 0) >= RATE_LIMIT_REQUESTS) {
       return {
         allowed: false,
         reason: `Rate limit exceeded. Maximum ${RATE_LIMIT_REQUESTS} requests per ${RATE_LIMIT_WINDOW} seconds.`,
-        retryAfter,
+        retryAfter: Math.max(1, Math.ceil(RATE_LIMIT_WINDOW - Number(record.window_age ?? 0))),
       };
     }
-
-    const currentTokens = record.tokens_used || 0;
-    if (currentTokens + estimatedTokens > DAILY_TOKEN_LIMIT) {
+    if ((record.request_count ?? 0) >= DAILY_REQUEST_LIMIT) {
       return {
         allowed: false,
-        reason: `Daily token limit exceeded. You've used ${currentTokens}/${DAILY_TOKEN_LIMIT} tokens today.`,
+        reason: `Daily request limit exceeded. You've made ${record.request_count}/${DAILY_REQUEST_LIMIT} requests today.`,
       };
     }
-
-    const currentRequests = record.request_count || 0;
-    if (currentRequests >= DAILY_REQUEST_LIMIT) {
-      return {
-        allowed: false,
-        reason: `Daily request limit exceeded. You've made ${currentRequests}/${DAILY_REQUEST_LIMIT} requests today.`,
-      };
-    }
-
-    await client.query(
-      `UPDATE token_usage 
-       SET tokens_used = tokens_used + $1, 
-           request_count = request_count + 1,
-           last_request = $2,
-           rate_limit_count = rate_limit_count + 1
-       WHERE user_id = $3`,
-      [estimatedTokens, now, userId]
-    );
-
-    return { allowed: true };
+    return {
+      allowed: false,
+      reason: `Daily token limit exceeded. You've used ${record.tokens_used ?? 0}/${DAILY_TOKEN_LIMIT} tokens today.`,
+    };
   } catch (error) {
-    console.warn("Database operation failed - allowing request:", error instanceof Error ? error.message : String(error));
-    return { allowed: true };
+    const message = error instanceof Error ? error.message : String(error);
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("Usage check failed - limits NOT enforced in development:", message);
+      return { allowed: true };
+    }
+    console.error("Usage check failed - refusing request:", message);
+    return DENIED_UNAVAILABLE;
   }
 }
 

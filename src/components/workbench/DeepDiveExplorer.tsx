@@ -38,7 +38,7 @@ const initialNodes = [
   },
   {
     id: "3",
-    data: { label: "Gemini adapter" },
+    data: { label: "Claude adapter" },
     position: { x: -120, y: 80 },
   },
 ];
@@ -482,7 +482,7 @@ export function DeepDiveExplorer() {
         if (res.status === 429) {
           const retryAfter = data.retryAfter || 60;
           throw new Error(
-            `Rate limit exceeded. Gemini Flash free tier allows ~1500 requests/day. ` +
+            `Rate limit exceeded. ` +
               `Please wait ${retryAfter} seconds or try again later.`,
           );
         }
@@ -625,7 +625,7 @@ export function DeepDiveExplorer() {
                   </p>
                   <div className="mt-1 flex-1 min-h-0 overflow-y-auto pr-1 text-fg/80 text-[11px] markdown-body transform-gpu scrollbar-thin">
                     {loading ? (
-                      <span className="text-fg/40">Analyzing file with Gemini…</span>
+                      <span className="text-fg/40">Analyzing file with Claude…</span>
                     ) : error ? (
                       <div className="rounded-xl border border-tomato-jam/30 bg-tomato-jam/5 p-2 text-tomato-jam/80">
                         <div className="flex items-start justify-between gap-2 mb-1">
@@ -695,7 +695,7 @@ export function DeepDiveExplorer() {
                   >
                     {loading && !mermaid ? (
                       <div className="flex h-full items-center justify-center text-[11px] text-fg/40">
-                        Generating flow chart with Gemini…
+                        Generating flow chart with Claude…
                       </div>
                     ) : mermaid && mermaid.trim() ? (
                       <div style={{ willChange: "transform", transform: "translateZ(0)", minHeight: "100%" }}>
@@ -715,7 +715,7 @@ export function DeepDiveExplorer() {
                           </p>
                           {!showGenerateCta && (
                             <p className="text-[10px] text-fg/25 mt-1">
-                              Gemini did not generate a diagram for this file.
+                              Claude did not generate a diagram for this file.
                             </p>
                           )}
                         </div>
@@ -788,7 +788,7 @@ export function DeepDiveExplorer() {
                 >
                   {loading && !mermaid ? (
                     <div className="flex h-full items-center justify-center text-xs text-fg/40">
-                      Generating flow chart with Gemini…
+                      Generating flow chart with Claude…
                     </div>
                   ) : mermaid ? (
                     <div style={{ willChange: "transform", transform: "translateZ(0)", minHeight: "100%" }}>

@@ -28,9 +28,9 @@ const TABS = [
           <span>Summary</span>
         </div>
         {[
-          { file: "route.ts",        summary: "POST endpoint, streaming Gemini analysis" },
+          { file: "route.ts",        summary: "POST endpoint, streaming Claude analysis" },
           { file: "RepoContext.tsx",  summary: "Global repo state via React Context" },
-          { file: "gemini_adapter.ts",summary: "Streams Gemini 2.5 Flash responses" },
+          { file: "claude_adapter.ts",summary: "Streams Claude responses" },
           { file: "AuthButton.tsx",   summary: "Session-aware auth toggle" },
         ].map(({ file, summary }) => (
           <div key={file} className="flex items-start justify-between gap-3 py-1">
@@ -91,7 +91,7 @@ const TABS = [
           ["  B",                   "-->|uses|",       "C[RepoAnalyzeForm]"],
           ["  C",                   "-->|calls|",      "D[startAnalysis]"],
           ["  D",                   "-->|POST /api/|", "E[analyze/route.ts]"],
-          ["  E",                   "-->|streams|",    "F[gemini_adapter]"],
+          ["  E",                   "-->|streams|",    "F[claude_adapter]"],
         ].map(([from, edge, to], i) => (
           <div key={i} className="flex gap-1 flex-wrap">
             <span className="text-fg/40">{from}</span>

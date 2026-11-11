@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth";
 import { fetchRepoTree, fetchRawFile } from "@/lib/github";
 import { inMemoryVectorStoreAdapter } from "@/lib/vector_store_adapter";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { claudeAdapter } from "@/lib/claude_adapter";
+import { checkAndRecordUsage } from "@/lib/tokenUsage";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,8 @@ interface GitHubRepo {
   language: string | null;
 }
 
+const GITHUB_SLUG = /^[A-Za-z0-9._-]{1,100}$/;
+
 function parseGitHubUrl(url: string): { owner: string; name: string } | null {
   try {
     const u = new URL(url.trim());
@@ -26,6 +29,7 @@ function parseGitHubUrl(url: string): { owner: string; name: string } | null {
     if (!owner || !rawName) return null;
 
     const name = rawName.endsWith(".git") ? rawName.slice(0, -4) : rawName;
+    if (!GITHUB_SLUG.test(owner) || !GITHUB_SLUG.test(name)) return null;
     return { owner, name };
   } catch {
     return null;
@@ -115,8 +119,7 @@ async function buildElevatorPitch(
   fileTree: Array<{ path: string; type?: string }>,
   sampleCode?: string | null,
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!process.env.ANTHROPIC_API_KEY) {
     const description = repo.description?.trim();
     const readmeLine = readme.split("\n").find((line) => line.trim().length > 0);
     const primaryLang = repo.language ? `Primary language: ${repo.language}.` : "";
@@ -126,15 +129,6 @@ async function buildElevatorPitch(
   }
 
   try {
-    const client = new GoogleGenerativeAI(apiKey);
-    const model = client.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || "models/gemini-3.6-flash",
-      generationConfig: {
-        maxOutputTokens: 800,
-        temperature: 0.7,
-      },
-    });
-
     const fileTreeSummary = fileTree
       .slice(0, 30)
       .filter((f) => f.type !== "tree")
@@ -170,10 +164,12 @@ async function buildElevatorPitch(
       .filter(Boolean)
       .join("\n");
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    
-    const cleanedText = text.trim();
+    const completion = await claudeAdapter.chat({
+      messages: [{ id: "pitch", role: "user", content: prompt, createdAt: new Date().toISOString() }],
+      config: { streaming: false },
+    });
+
+    const cleanedText = completion.content.trim();
     const primaryLang = repo.language ? `Primary language: ${repo.language}.` : "";
     const repoStats = `Stars: ${repo.stargazers_count}, forks: ${repo.forks_count}.`;
     
@@ -202,8 +198,8 @@ export async function POST(req: NextRequest) {
 
     const { repoUrl } = (await req.json()) as { repoUrl?: string };
 
-    if (!repoUrl) {
-      return Response.json({ error: "Missing repoUrl" }, { status: 400 });
+    if (!repoUrl || typeof repoUrl !== "string" || repoUrl.length > 300) {
+      return Response.json({ error: "Missing or invalid repoUrl" }, { status: 400 });
     }
 
     const parsed = parseGitHubUrl(repoUrl);
@@ -214,6 +210,15 @@ export async function POST(req: NextRequest) {
     const { owner, name } = parsed;
     const repoId = `${owner}/${name}`;
 
+    // Each analysis costs ~28 GitHub requests and one LLM call (prompt is capped near 1,500 tokens).
+    const usageCheck = await checkAndRecordUsage(userId, 2500);
+    if (!usageCheck.allowed) {
+      return Response.json(
+        { error: usageCheck.reason || "Usage limit exceeded", retryAfter: usageCheck.retryAfter },
+        { status: 429 },
+      );
+    }
+
     const headers: HeadersInit = {
       "User-Agent": "gitlore",
       Accept: "application/vnd.github+json",
@@ -223,6 +228,16 @@ export async function POST(req: NextRequest) {
     if (pat) {
       headers.Authorization = `Bearer ${pat}`;
     }
+
+    // Metadata, README and tree are independent, so request them together.
+    const readmePromise = fetch(
+      `https://raw.githubusercontent.com/${owner}/${name}/HEAD/README.md`,
+      { headers: { "User-Agent": "gitlore" } },
+    )
+      .then((res) => (res.ok ? res.text() : ""))
+      .catch(() => "");
+    const treePromise = fetchRepoTree(owner, name);
+    treePromise.catch(() => {}); // surfaced by the await below; silences the early-return path
 
     const repoRes = await fetch(`https://api.github.com/repos/${owner}/${name}`, {
       headers,
@@ -243,23 +258,11 @@ export async function POST(req: NextRequest) {
 
     const repo = (await repoRes.json()) as GitHubRepo;
 
-    const readmeRes = await fetch(
-      `https://raw.githubusercontent.com/${owner}/${name}/HEAD/README.md`,
-      { headers: { "User-Agent": "gitlore" } },
-    );
-
-    let readme = "";
-    if (readmeRes.ok) {
-      try {
-        readme = await readmeRes.text();
-      } catch {
-        readme = "";
-      }
-    }
+    const readme = await readmePromise;
 
     const optimizedReadme = readme ? readme.slice(0, 1500) : "[no readme]";
 
-    const tree = await fetchRepoTree(owner, name);
+    const tree = await treePromise;
     const { stackRadar, hotspots } = calculateRepoStats(tree);
 
     const codeEntries = tree.filter(
@@ -290,22 +293,29 @@ export async function POST(req: NextRequest) {
 
     let firstFileContent: string | null = null;
 
-    for (const entry of limited) {
-      try {
-        const text = await fetchRawFile(owner, name, entry.path);
-        documents.push({
-          id: entry.path,
-          text,
-          path: entry.path,
-          metadata: {
-            bytes: entry.size ?? text.length,
-          },
-        });
-        fileSizes[entry.path] = entry.size ?? text.length;
-        if (!firstFileContent) {
-          firstFileContent = text;
-        }
-      } catch {
+    // Fetch the sampled files concurrently; failed files are skipped.
+    const fetched = await Promise.all(
+      limited.map((entry) =>
+        fetchRawFile(owner, name, entry.path)
+          .then((text) => ({ entry, text }))
+          .catch(() => null),
+      ),
+    );
+
+    for (const file of fetched) {
+      if (!file) continue;
+      const { entry, text } = file;
+      documents.push({
+        id: entry.path,
+        text,
+        path: entry.path,
+        metadata: {
+          bytes: entry.size ?? text.length,
+        },
+      });
+      fileSizes[entry.path] = entry.size ?? text.length;
+      if (!firstFileContent) {
+        firstFileContent = text;
       }
     }
 

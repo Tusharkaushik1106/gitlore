@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useRepoContext } from "@/context/RepoContext";
 import { AlertCircle } from "lucide-react";
-import { signIn, useSession } from "next-auth/react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -18,23 +17,8 @@ const steps = [
 
 export function NeuralLoadingBay() {
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
   const { analysis, status, error, startAnalysis, finishAnalysis, failAnalysis } = useRepoContext();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-
-  useEffect(() => {
-    if (error && (error.toLowerCase().includes("unauthorized") || error.toLowerCase().includes("401"))) {
-      const callbackUrl = "/";
-      void signIn(undefined, { callbackUrl });
-    }
-  }, [error, router]);
-
-  useEffect(() => {
-    if (sessionStatus === "unauthenticated") {
-      const callbackUrl = "/";
-      void signIn(undefined, { callbackUrl });
-    }
-  }, [sessionStatus, router]);
 
   useEffect(() => {
     if (!analysis?.repoUrl || status === "done" || status === "error") {
@@ -92,16 +76,7 @@ export function NeuralLoadingBay() {
     };
   }, [analysis?.repoUrl, failAnalysis, finishAnalysis, router, status]);
 
-  /* ── Auth redirect splash ── */
   if (status === "error" && error) {
-    if (error.toLowerCase().includes("unauthorized") || error.toLowerCase().includes("401")) {
-      return (
-        <main className="flex min-h-dvh items-center justify-center px-4">
-          <p className="text-sm text-fg/40">Redirecting to sign in…</p>
-        </main>
-      );
-    }
-
     /* ── Error state ── */
     return (
       <main className="flex min-h-dvh items-center justify-center px-6 py-16">

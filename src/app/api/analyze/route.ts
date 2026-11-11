@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/lib/auth";
 import { fetchRepoTree, fetchRawFile } from "@/lib/github";
 import { inMemoryVectorStoreAdapter } from "@/lib/vector_store_adapter";
 import { claudeAdapter } from "@/lib/claude_adapter";
-import { checkAndRecordUsage } from "@/lib/tokenUsage";
+import { reserveUsage } from "@/lib/usageGuard";
 
 export const runtime = "nodejs";
 
@@ -15,6 +13,7 @@ interface GitHubRepo {
   forks_count: number;
   open_issues_count: number;
   language: string | null;
+  private?: boolean;
 }
 
 const GITHUB_SLUG = /^[A-Za-z0-9._-]{1,100}$/;
@@ -187,15 +186,7 @@ async function buildElevatorPitch(
 
 export async function POST(req: NextRequest) {
   try {
-    const session = (await getServerSession(authConfig)) as
-      | { user?: { email?: string | null; id?: string | null } }
-      | null;
-    const userId = session?.user?.email || session?.user?.id;
-
-    if (!userId) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    
     const { repoUrl } = (await req.json()) as { repoUrl?: string };
 
     if (!repoUrl || typeof repoUrl !== "string" || repoUrl.length > 300) {
@@ -211,7 +202,7 @@ export async function POST(req: NextRequest) {
     const repoId = `${owner}/${name}`;
 
     // Each analysis costs ~28 GitHub requests and one LLM call (prompt is capped near 1,500 tokens).
-    const usageCheck = await checkAndRecordUsage(userId, 2500);
+    const usageCheck = await reserveUsage(req, 2500);
     if (!usageCheck.allowed) {
       return Response.json(
         { error: usageCheck.reason || "Usage limit exceeded", retryAfter: usageCheck.retryAfter },
@@ -257,6 +248,11 @@ export async function POST(req: NextRequest) {
     }
 
     const repo = (await repoRes.json()) as GitHubRepo;
+
+    // The server's GitHub token may be able to see private repos; visitors must not.
+    if (repo.private) {
+      return Response.json({ error: "Repository not found or not accessible." }, { status: 400 });
+    }
 
     const readme = await readmePromise;
 

@@ -4,13 +4,11 @@ import { motion } from "framer-motion";
 import { GithubIcon, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signIn, useSession } from "next-auth/react";
 import { useRepoContext } from "@/context/RepoContext";
 import { Button, Eyebrow } from "@/components/ui";
 
 export function HeroLanding() {
   const router = useRouter();
-  const { data: session, status } = useSession();
   const { startAnalysis } = useRepoContext();
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -20,12 +18,6 @@ export function HeroLanding() {
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || submitting) return;
-
-    if (status === "unauthenticated" || !session) {
-      const callbackUrl = "/";
-      void signIn(undefined, { callbackUrl });
-      return;
-    }
 
     setSubmitting(true);
     startAnalysis(input.trim());
@@ -123,7 +115,7 @@ export function HeroLanding() {
                 <div className="flex flex-wrap items-center gap-3 text-[11px] text-fg/50">
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-fg/5 px-2.5 py-1">
                     <GithubIcon className="h-3.5 w-3.5 text-fg/60" />
-                    <span>GitHub OAuth / PAT – tokens never logged</span>
+                    <span>Public GitHub repos – no account needed</span>
                   </div>
                   <span className="text-fg/20">or</span>
                   <span>Drop a .zip – processed entirely server-side</span>

@@ -3,7 +3,6 @@
 import { GithubIcon, Sparkles, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signIn, useSession } from "next-auth/react";
 import { useRepoContext } from "@/context/RepoContext";
 import { Button } from "@/components/ui";
 
@@ -17,7 +16,6 @@ import { Button } from "@/components/ui";
 
 export function RepoAnalyzeForm() {
   const router = useRouter();
-  const { data: session, status } = useSession();
   const { startAnalysis } = useRepoContext();
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -27,12 +25,6 @@ export function RepoAnalyzeForm() {
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || submitting) return;
-
-    if (status === "unauthenticated" || !session) {
-      const callbackUrl = "/";
-      void signIn(undefined, { callbackUrl });
-      return;
-    }
 
     setSubmitting(true);
     startAnalysis(input.trim());
@@ -71,7 +63,7 @@ export function RepoAnalyzeForm() {
       <div className="mt-3.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] text-fg/30">
         <span className="inline-flex items-center gap-1.5">
           <GithubIcon className="h-3 w-3 text-fg/40" />
-          OAuth — tokens never stored
+          No sign-up
         </span>
         <span aria-hidden className="text-fg/15">·</span>
         <span className="inline-flex items-center gap-1.5">

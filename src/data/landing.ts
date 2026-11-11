@@ -232,7 +232,7 @@ export const FREE_INCLUDES: FreeInclude[] = [
 
 export const TRUST_SIGNALS: string[] = [
   "No credit card required",
-  "GitHub OAuth only — no password stored",
+  "No account, no password, nothing to sign up for",
   "Tokens never logged or shared",
   "Repos not persisted after session",
 ];

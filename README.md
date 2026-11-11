@@ -4,7 +4,7 @@
 
 # gitlore
 
-AI-assisted repository narrator built with Next.js App Router and Claude. Paste a GitHub URL, sign in, and gitlore delivers repo-level overviews, hotspots, file-by-file summaries, and Mermaid diagrams, plus a RAG-backed chat tied to the file you are viewing.
+AI-assisted repository narrator built with Next.js App Router and Claude. Paste a GitHub URL and gitlore delivers repo-level overviews, hotspots, file-by-file summaries, and Mermaid diagrams, plus a RAG-backed chat tied to the file you are viewing.
 
 ## What the app does
 - Analyzes GitHub repos with Claude: elevator pitch, stack radar, hotspots, file summaries, and diagrams.
@@ -31,7 +31,7 @@ flowchart TD
 
 ## Architecture (high level)
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, framer-motion, lucide-react, recharts (radar), reactflow, Monaco editor, Mermaid renderer, react-resizable-panels, ReactMarkdown. Styling via utility classes in `globals.css`.
-- **Auth:** NextAuth (GitHub/Google) with custom sign-in page at `/api/auth/signin`.
+- **Access:** No accounts. Visitors are metered by a hashed IP address, with a site-wide daily token budget on top.
 - **Backend APIs:** Next.js route handlers (see below) orchestrate GitHub fetches, Claude calls, caching, and token accounting.
 - **Data:** Postgres (optional) for `diagram_cache` and `token_usage`; in-memory diagram cache; in-memory vector store using local hashed bag-of-words vectors.
 
@@ -50,7 +50,7 @@ flowchart TD
 
 ## Tech stack & dependencies
 - Next.js 16 (App Router), React 19, TypeScript.
-- NextAuth for OAuth; Claude API (`@anthropic-ai/sdk`) for chat/summarization; embeddings are a local hashed bag-of-words.
+- Claude API (`@anthropic-ai/sdk`) for chat/summarization; embeddings are a local hashed bag-of-words.
 - Postgres via `pg`; recharts, mermaid, reactflow, framer-motion, lucide-react, Monaco editor, ReactMarkdown, react-resizable-panels.
 
 ## Environment & config
@@ -59,8 +59,8 @@ Required for core features:
 - `ANTHROPIC_MODEL` — Optional; defaults to `claude-haiku-5-5`.
 - `GITHUB_PAT` — Optional; raises GitHub rate limits.
 - `DATABASE_URL` — Optional; enables Postgres persistence for diagrams/usage.
-- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+- `USAGE_SALT` — Random string mixed into the IP hash used for usage metering.
+- `GLOBAL_DAILY_TOKEN_LIMIT` — Optional; site-wide daily token budget, defaults to 2,000,000.
 - Optional vector store placeholders: `VECTOR_DB_URL`, `VECTOR_DB_KEY`, `VECTOR_DB_PROVIDER`.
 
 Rate limits (enforced in `tokenUsage.ts`):
@@ -70,7 +70,7 @@ Rate limits (enforced in `tokenUsage.ts`):
 1) Install deps: `npm install`  
 2) Copy `.env.local.example` (create if missing) to `.env.local` and fill required keys.  
 3) Run dev server: `npm run dev`  
-4) Open http://localhost:3000 and sign in via GitHub/Google.
+4) Open http://localhost:3000.
 
 ## Repository layout (not exhaustive)
 - `src/app` — App Router pages and API routes (`api/analyze`, `api/project-overview`, `api/file-summary`, `api/chat`, `api/usage`, auth).

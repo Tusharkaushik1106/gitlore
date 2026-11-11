@@ -1,15 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
 import { Zap } from "lucide-react";
 import { UsageModal } from "./UsageModal";
 
 export function UsageIndicator() {
-  const { data: session } = useSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  if (!session?.user) return null;
 
   return (
     <>

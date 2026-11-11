@@ -40,10 +40,9 @@ export function NeuralLoadingBay() {
           const data = await res.json().catch(() => ({}));
 
           if (res.status === 429) {
-            const retryAfter = data.retryAfter || 60;
             throw new Error(
-              `Rate limit exceeded. ` +
-              `Please wait ${retryAfter} seconds and try again.`
+              data.error ||
+                `Rate limit exceeded. Please wait ${data.retryAfter || 60} seconds and try again.`
             );
           }
           throw new Error(data.error || "Failed to analyze repository");

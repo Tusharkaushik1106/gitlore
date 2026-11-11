@@ -57,7 +57,7 @@ export function ProjectOverview() {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           if (res.status === 429) {
-            throw new Error(`Rate limit exceeded. Please wait and try again later.`);
+            throw new Error(data.error || `Rate limit exceeded. Please wait and try again later.`);
           }
           throw new Error(data.error || "Failed to load project analysis.");
         }

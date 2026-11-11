@@ -135,16 +135,19 @@ async function buildElevatorPitch(
       .join(", ");
 
     const prompt = [
-      "You are gitlore, an expert software explainer. Generate a detailed, comprehensive elevator pitch for this repository.",
+      "You are gitlore, an expert software explainer. Write a short elevator pitch for this repository that someone can take in at a glance.",
       "",
-      "Write a 2-3 paragraph summary (approximately 200-300 words) that includes:",
-      "- What the project does and its main purpose",
-      "- Key features, capabilities, and what makes it unique",
-      "- Technology stack and primary programming language",
-      "- Target audience or use cases",
-      "- Notable aspects like architecture patterns, design decisions, or special features",
+      "Use exactly this markdown structure and nothing else:",
       "",
-      "Be specific, informative, and engaging. Use the repository information provided below.",
+      "One or two plain sentences (at most 35 words) saying what the project is and why it exists.",
+      "",
+      "- **What it does:** the main things a user can do with it",
+      "- **How it works:** the core mechanism or flow",
+      "- **Stack:** languages, frameworks and services, comma-separated",
+      "- **Who it's for:** the intended user",
+      "- **Notable:** the one design decision that sets it apart",
+      "",
+      "Each bullet is one sentence of at most 25 words. Be specific to this repository; skip generic praise. Put file names and identifiers in backticks.",
       "",
       "Repository information:",
       `- Name: ${repo.full_name}`,
@@ -158,7 +161,7 @@ async function buildElevatorPitch(
       "",
       sampleCode ? `Sample code:\n${sampleCode.slice(0, 1500)}` : "",
       "",
-      "Generate ONLY the elevator pitch text. Do not include headers, titles, or markdown formatting. Write in a clear, professional tone.",
+      "Return only the pitch in the structure above: no heading, no preamble, no closing remark.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -169,10 +172,18 @@ async function buildElevatorPitch(
     });
 
     const cleanedText = completion.content.trim();
-    const primaryLang = repo.language ? `Primary language: ${repo.language}.` : "";
-    const repoStats = `Stars: ${repo.stargazers_count}, forks: ${repo.forks_count}.`;
-    
-    return `${cleanedText} ${primaryLang} ${repoStats}`.trim();
+    const stats = [
+      repo.language,
+      `${repo.stargazers_count} stars`,
+      `${repo.forks_count} forks`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    // The stats go on their own line, in italics, so the UI can style them apart.
+    return `${cleanedText}
+
+_${stats}_`;
   } catch (error) {
     console.warn("Failed to generate AI elevator pitch, using fallback:", error);
     const description = repo.description?.trim();

@@ -11,7 +11,7 @@ const GLOBAL_LIMITS = {
 
 /**
  * Stable anonymous id for the caller, derived from their IP address.
- * The address is hashed so raw IPs are never written to the database.
+ * The address is hashed so raw IPs are never kept, even in memory.
  */
 export function getClientId(req: Request): string {
   // ponytail: trusts the proxy's headers. Vercel overwrites both, so they cannot

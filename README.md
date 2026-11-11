@@ -25,7 +25,6 @@ flowchart TD
   ProjectOverview --> Claude["Claude LLM"]
   FileSummary --> Claude
   Chat --> Claude
-  ProjectOverview --> PG["Postgres diagram_cache"]
   Usage["/api/usage"] --> PG
 ```
 
@@ -33,15 +32,15 @@ flowchart TD
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, framer-motion, lucide-react, recharts (radar), reactflow, Monaco editor, Mermaid renderer, react-resizable-panels, ReactMarkdown. Styling via utility classes in `globals.css`.
 - **Access:** No accounts. Visitors are metered by a hashed IP address, with a site-wide daily token budget on top.
 - **Backend APIs:** Next.js route handlers (see below) orchestrate GitHub fetches, Claude calls, caching, and token accounting.
-- **Data:** Postgres (optional) for `diagram_cache` and `token_usage`; in-memory diagram cache; in-memory vector store using local hashed bag-of-words vectors.
+- **Data:** No database. Usage counters, summaries, overviews and the vector store are held in server memory and reset when the server restarts.
 
 ## Key flows & API routes
 - `POST /api/analyze` — Validate GitHub URL, fetch repo metadata/README, fetch a subset of files, build hotspots, embed code snippets, and ask Claude for elevator pitch + stack radar. Returns `repoId`, sample/full file tree, hotspots, and sample code.
-- `POST /api/project-overview` — Given owner/name/tree/sampleCode, prompts Claude for overview, architecture, key components, data flow, tech stack, dependencies, and two Mermaid diagrams. Caches in memory and persists to Postgres via `diagramStore`.
+- `POST /api/project-overview` — Given owner/name/tree/sampleCode, prompts Claude for overview, architecture, key components, data flow, tech stack, dependencies, and two Mermaid diagrams. Cached in memory.
 - `POST /api/file-summary` — Fetches a raw file from GitHub, truncates, and prompts Claude for markdown summary + Mermaid diagram.
 - `POST /api/chat` — Streams Claude responses; can include RAG context from the in-memory vector store and the current file content.
 - `POST /api/index-repo` — Stubbed placeholder; returns a queued `jobId`.
-- `GET /api/usage` — Returns per-user token/request usage from Postgres `token_usage`.
+- `GET /api/usage` — Returns the caller's token/request usage for the day.
 
 ## Frontend experience
 - **Dashboard:** Radar chart for stack balance, hotspots list, and project overview with diagrams (`ProjectOverview`).
@@ -51,14 +50,13 @@ flowchart TD
 ## Tech stack & dependencies
 - Next.js 16 (App Router), React 19, TypeScript.
 - Claude API (`@anthropic-ai/sdk`) for chat/summarization; embeddings are a local hashed bag-of-words.
-- Postgres via `pg`; recharts, mermaid, reactflow, framer-motion, lucide-react, Monaco editor, ReactMarkdown, react-resizable-panels.
+- recharts, mermaid, reactflow, framer-motion, lucide-react, Monaco editor, ReactMarkdown, react-resizable-panels.
 
 ## Environment & config
 Required for core features:
 - `ANTHROPIC_API_KEY` — Claude API key.
 - `ANTHROPIC_MODEL` — Optional; defaults to `claude-haiku-5-5`.
 - `GITHUB_PAT` — Optional; raises GitHub rate limits.
-- `DATABASE_URL` — Optional; enables Postgres persistence for diagrams/usage.
 - `USAGE_SALT` — Random string mixed into the IP hash used for usage metering.
 - `GLOBAL_DAILY_TOKEN_LIMIT` — Optional; site-wide daily token budget, defaults to 2,000,000.
 - Optional vector store placeholders: `VECTOR_DB_URL`, `VECTOR_DB_KEY`, `VECTOR_DB_PROVIDER`.

@@ -5,7 +5,11 @@ import type { NarrationMessage } from "@/lib/types";
 import { estimateTokens, recordActualUsage } from "@/lib/tokenUsage";
 import { getClientId, reserveUsage } from "@/lib/usageGuard";
 import { createHash } from "crypto";
-import { ensureSummaryCacheTable, getDbPool } from "@/lib/db/schema";
+
+// Summaries keyed by a hash of the file's content, so identical files are only
+// summarized once per server instance. Oldest entries are dropped past the cap.
+const summaryCache = new Map<string, { summary: string; mermaid: string }>();
+const SUMMARY_CACHE_MAX = 500;
 
 export const runtime = "nodejs";
 
@@ -51,31 +55,9 @@ export async function POST(req: NextRequest) {
         : fileContent;
 
     const fileHash = createHash("sha256").update("v2:" + fileContent).digest("hex");
-    const pool = getDbPool();
-
-    if (pool) {
-      try {
-        await ensureSummaryCacheTable(pool);
-        const cached = await pool.query(
-          `SELECT summary_markdown, diagram_code FROM summary_cache WHERE file_hash = $1 LIMIT 1`,
-          [fileHash],
-        );
-
-        const cachedRow = cached.rows?.[0];
-        if (cachedRow) {
-          return Response.json({
-            path,
-            code: codePayload,
-            summary: cachedRow.summary_markdown ?? "",
-            mermaid: (cachedRow.diagram_code ?? "") as string,
-          });
-        }
-      } catch (cacheError) {
-        console.warn(
-          "Failed to read summary cache:",
-          cacheError instanceof Error ? cacheError.message : String(cacheError),
-        );
-      }
+    const cached = summaryCache.get(fileHash);
+    if (cached) {
+      return Response.json({ path, code: codePayload, summary: cached.summary, mermaid: cached.mermaid });
     }
 
     const prompt = [
@@ -177,24 +159,10 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    if (pool) {
-      try {
-        await pool.query(
-          `
-          INSERT INTO summary_cache (file_hash, summary_markdown, diagram_code)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (file_hash)
-          DO UPDATE SET summary_markdown = EXCLUDED.summary_markdown, diagram_code = EXCLUDED.diagram_code, updated_at = now();
-        `,
-          [fileHash, parsed.summary, parsed.mermaid ?? ""],
-        );
-      } catch (cacheError) {
-        console.warn(
-          "Failed to write summary cache:",
-          cacheError instanceof Error ? cacheError.message : String(cacheError),
-        );
-      }
+    if (summaryCache.size >= SUMMARY_CACHE_MAX) {
+      summaryCache.delete(summaryCache.keys().next().value as string);
     }
+    summaryCache.set(fileHash, { summary: parsed.summary, mermaid: parsed.mermaid ?? "" });
 
     return Response.json({
       path,

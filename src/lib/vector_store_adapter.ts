@@ -42,6 +42,7 @@ type StoredVector = {
 
 
 const memoryStore = new Map<string, StoredVector[]>();
+const MAX_REPOS = 50;
 
 function cosineSimilarity(a: number[], b: number[]): number {
   const len = Math.min(a.length, b.length);
@@ -87,6 +88,10 @@ export const inMemoryVectorStoreAdapter: VectorStoreAdapter = {
       }
     }
 
+    // Drop the oldest repo once full so memory use stays bounded.
+    if (!memoryStore.has(repoId) && memoryStore.size >= MAX_REPOS) {
+      memoryStore.delete(memoryStore.keys().next().value as string);
+    }
     memoryStore.set(repoId, existing);
   },
 

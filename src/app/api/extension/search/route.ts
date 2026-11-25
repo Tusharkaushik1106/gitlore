@@ -68,8 +68,8 @@ Question: ${query}`,
       headers: { 'Access-Control-Allow-Origin': '*' }
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ answer: 'System Overload. Try again.' }, { 
+  } catch {
+    return NextResponse.json({ answer: 'System Overload. Try again.' }, {
         status: 500,
         headers: { 'Access-Control-Allow-Origin': '*' }
     });

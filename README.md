@@ -41,6 +41,34 @@ flowchart TD
 - `POST /api/chat` — Streams Claude responses; can include RAG context from the in-memory vector store and the current file content.
 - `POST /api/index-repo` — Stubbed placeholder; returns a queued `jobId`.
 - `GET /api/usage` — Returns the caller's token/request usage for the day.
+- `POST /api/mcp/<key>` — MCP server for AI coding agents (see below). `POST /api/mcp-key` issues keys.
+
+## MCP server
+`/api/mcp` lets AI coding agents (Claude Code, Cursor, any Streamable HTTP MCP client) run gitlore's code review checks before they commit. The checks are the same ones the VS Code extension uses (`src/lib/codeReview.ts`).
+
+| Tool | Input | Returns |
+|---|---|---|
+| `score_risk` | `code` (≤5,000 chars) | `score` 1-10 and a one-line `reason` |
+| `check_impact` | `code` (≤5,000 chars) | `riskLabel`, `summary`, `touches` (PII / Auth / External API / Database write), `complexity` 0-100 |
+| `explain_file` | `content`, optional `path` | `purpose`, `components`, `architecture`, `truncated` |
+
+The server tells agents to flag a risk score of 7+ or any change touching PII, Auth or Database write to the user before committing.
+
+**Access:** every call needs a personal key. Visitors get one free, without signing up, from the "MCP server" section of the home page (`/#mcp`), which calls `POST /api/mcp-key` (capped at 5 keys per visitor per day). Keys are signed with `MCP_SIGNING_SECRET`, so nothing is stored; changing that secret revokes every key. Usage is metered per key, because connector traffic such as claude.ai's arrives from the platform's IPs, and the site-wide daily budget still applies on top.
+
+The key goes in the URL, `https://gitlore.app/api/mcp/<key>`, so it works anywhere that accepts a server URL, including Claude's custom connectors. Clients that can send headers can use `https://gitlore.app/api/mcp` with `Authorization: Bearer <key>` instead.
+
+**Claude (web or desktop):** Settings → Connectors → Add custom connector, then paste the link.
+
+**Claude Code:**
+```bash
+claude mcp add --transport http gitlore https://gitlore.app/api/mcp/<key>
+```
+
+**Cursor** (`~/.cursor/mcp.json`):
+```json
+{ "mcpServers": { "gitlore": { "url": "https://gitlore.app/api/mcp/<key>" } } }
+```
 
 ## Frontend experience
 - **Dashboard:** Radar chart for stack balance, hotspots list, and project overview with diagrams (`ProjectOverview`).
@@ -59,6 +87,8 @@ Required for core features:
 - `GITHUB_PAT` — Optional; raises GitHub rate limits.
 - `USAGE_SALT` — Random string mixed into the IP hash used for usage metering.
 - `GLOBAL_DAILY_TOKEN_LIMIT` — Optional; site-wide daily token budget, defaults to 2,000,000.
+- `EXTENSION_SECRET` — Shared key the VS Code extension sends to `/api/extension/*`.
+- `MCP_SIGNING_SECRET` — 32+ random characters used to sign MCP keys. The MCP server and key endpoint stay off until it's set.
 - Optional vector store placeholders: `VECTOR_DB_URL`, `VECTOR_DB_KEY`, `VECTOR_DB_PROVIDER`.
 
 Rate limits (enforced in `tokenUsage.ts`):

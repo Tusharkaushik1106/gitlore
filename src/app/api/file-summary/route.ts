@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         ? `${fileContent.slice(0, 16000)}\n// … truncated`
         : fileContent;
 
-    const fileHash = createHash("sha256").update("v2:" + fileContent).digest("hex");
+    const fileHash = createHash("sha256").update("v3:" + fileContent).digest("hex");
     const cached = summaryCache.get(fileHash);
     if (cached) {
       return Response.json({ path, code: codePayload, summary: cached.summary, mermaid: cached.mermaid });
@@ -66,7 +66,10 @@ export async function POST(req: NextRequest) {
       "The summary must explain the file well enough that a developer new to the repo understands it without reading the code.",
       "Use these markdown sections in the summary: '## Purpose' (what the file is for and why it exists), '## How it works' (walk through the main flow step by step), '## Key pieces' (each important function, class, component or export and what it does), '## Connections' (what it imports or calls and what is likely to depend on it), '## Worth knowing' (edge cases, side effects, error handling, non-obvious decisions).",
       "Be specific: name real identifiers from the code in backticks. Skip a section only if the file has nothing for it.",
-      "Mermaid rules: valid syntax only, quote labels with spaces, max 8 nodes.",
+      "Mermaid rules: valid syntax only, no code fences, no styling. Pick ONE form:",
+      "- For a file that runs steps in order (a handler, a function pipeline): flowchart TB with 4-8 nodes in one top-to-bottom path; at most one branch, written as two edges out of one node.",
+      "- For a file that calls other modules back and forth: sequenceDiagram with 3-5 participants declared first, then 4-8 messages using ->> and -->>.",
+      'Flowchart node IDs are single capitalized words, labels quoted in square brackets and 1-4 words, e.g. Parse["Parse body"] --> Check["Validate input"]. One statement per line.',
       `File: ${path}`,
       `Content:\n${codePayload}`,
     ].join("\n");

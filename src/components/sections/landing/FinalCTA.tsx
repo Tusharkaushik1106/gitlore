@@ -1,6 +1,8 @@
 import { GitFork } from "lucide-react";
 import { CTASection } from "@/components/blocks/CTASection";
+import { GradientText } from "@/components/motion/fx";
 import { RepoAnalyzeForm } from "./RepoAnalyzeForm";
+import { HERO_SAMPLE_REPOS } from "@/data/landing";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Landing › FinalCTA
@@ -19,13 +21,11 @@ export function FinalCTA() {
       headline={
         <>
           Your next repo is{" "}
-          <span className="bg-gradient-to-r from-tomato-jam to-metallic-gold bg-clip-text text-transparent">
-            one URL away
-          </span>
+          <GradientText>one URL away</GradientText>
         </>
       }
       subheadline="Drop any GitHub repository below. No setup, no configuration — just a URL and 60 seconds."
-      form={<RepoAnalyzeForm />}
+      form={<RepoAnalyzeForm samples={HERO_SAMPLE_REPOS} />}
     />
   );
 }

@@ -318,7 +318,7 @@ body {
 /* ─────────────────────────────────────────────────────────────────────────────
  * CSS Scroll Reveal System
  *
- * Replaces framer-motion Reveal / Stagger / SectionTransition with pure CSS.
+ * Replaces framer-motion Reveal / Stagger with pure CSS.
  * Animations run on the GPU compositor thread → zero main-thread JS during scroll.
  *
  * Flow:
@@ -348,22 +348,253 @@ body {
 .reveal-ready[data-reveal="fadeScale"][data-visible]   { animation-name: gfFadeScale; }
 .reveal-ready[data-reveal="slideLeft"][data-visible]   { animation-name: gfSlideLeft; }
 .reveal-ready[data-reveal="slideRight"][data-visible]  { animation-name: gfSlideRight; }
-.reveal-ready[data-reveal="sectionEnter"][data-visible] {
-  animation-name: gfSectionEnter;
-  animation-duration: 0.5s;
+/* Same blur-in as the hero copy, for headings and cards further down the page */
+.reveal-ready[data-reveal="blurUp"][data-visible] {
+  animation-name: gfBlurUp;
+  animation-duration: 0.9s;
+  animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 @keyframes gfFadeUp     { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes gfFade       { from { opacity: 0; }                              to { opacity: 1; } }
 @keyframes gfFadeScale  { from { opacity: 0; transform: scale(0.98); }     to { opacity: 1; transform: none; } }
 @keyframes gfSlideLeft  { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes gfBlurUp     { from { opacity: 0; filter: blur(8px); transform: translateY(16px); } to { opacity: 1; filter: blur(0); transform: none; } }
 @keyframes gfSlideRight { from { opacity: 0; transform: translateX(14px); }  to { opacity: 1; transform: none; } }
-@keyframes gfSectionEnter { from { opacity: 0; transform: translateY(6px); }  to { opacity: 1; transform: none; } }
 
 /* Respect prefers-reduced-motion — show immediately, no animation */
 @media (prefers-reduced-motion: reduce) {
   .reveal-ready[data-reveal]:not([data-visible]) { opacity: 1 !important; }
   .reveal-ready[data-reveal][data-visible]        { animation: none !important; }
+}
+
+/* ── Shared landing effects (src/components/motion/fx.tsx) ── */
+/* Turns a gradient background into a 1px glowing border */
+.fx-spot-border {
+  padding: 1px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.fx-marquee-track {
+  animation: gfMarquee var(--marquee-seconds, 30s) linear infinite;
+}
+.fx-marquee:hover .fx-marquee-track {
+  animation-play-state: paused;
+}
+@keyframes gfMarquee {
+  to { transform: translateX(-100%); }
+}
+.fx-line-runner {
+  background: linear-gradient(90deg, transparent, #f2cb66, transparent);
+  box-shadow: 0 0 12px 2px rgba(242, 203, 102, 0.5);
+  animation: gfLineRun 3.2s cubic-bezier(0.455, 0.03, 0.515, 0.955) 1.2s infinite;
+}
+@keyframes gfLineRun {
+  from { left: -6rem; }
+  to   { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-marquee-track, .fx-line-runner { animation: none; }
+}
+
+/* MCP hub diagram: a pulse of light runs along each client's beam into gitlore */
+.mcp-beam {
+  stroke-dasharray: 46 360;
+  animation: gfMcpBeam 2.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) var(--d, 0s) infinite;
+  filter: drop-shadow(0 0 4px rgba(234, 122, 59, 0.6));
+}
+@keyframes gfMcpBeam {
+  from { stroke-dashoffset: 406; }
+  to   { stroke-dashoffset: 0; }
+}
+.mcp-hub-ring {
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  animation: gfMcpRing 2.8s ease-out infinite;
+}
+@keyframes gfMcpRing {
+  from { transform: scale(0.85); opacity: 0.9; }
+  to   { transform: scale(1.35); opacity: 0; }
+}
+/* Feature walkthrough: the active item's bar fills, and its animationend advances to the next item */
+.walk-progress-run {
+  animation: gfWalk var(--walk-seconds, 7s) linear both;
+}
+.group\/walk:hover .walk-progress-run {
+  animation-play-state: paused;
+}
+@keyframes gfWalk {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+/* Extension mockup: the line gitlore is annotating breathes */
+.ext-line-glow {
+  animation: gfLineGlow 2.8s ease-in-out infinite;
+}
+@keyframes gfLineGlow {
+  0%, 100% { background-color: rgba(192, 57, 43, 0.06); }
+  50%      { background-color: rgba(192, 57, 43, 0.16); }
+}
+/* A pulse dropping down a vertical connector */
+.mcp-drop {
+  animation: gfDrop 1.6s cubic-bezier(0.455, 0.03, 0.515, 0.955) var(--d, 0s) infinite;
+}
+@keyframes gfDrop {
+  from { top: -3px; opacity: 0; }
+  30%  { opacity: 1; }
+  to   { top: 100%; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcp-beam { animation: none; stroke-dasharray: none; opacity: 0.5; }
+  .walk-progress-run { animation: none; transform: scaleX(0); }
+  .mcp-drop { animation: none; opacity: 0; }
+  .ext-line-glow { animation: none; background-color: rgba(192, 57, 43, 0.1); }
+  .mcp-hub-ring { animation: none; opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Hero motion
+ *
+ * Timings and curves taken from how linear.app and coderabbit.ai animate their
+ * heroes (read off their live pages with document.getAnimations()):
+ *   • copy blurs in: blur 10px + 20% rise + fade, 1s, cubic-bezier(.25,.1,.25,1)
+ *   • product window rises late with an ease-in-out curve and a light flash
+ *   • a scan line sweeps the preview; status dots resolve gold → green
+ *   • cards pop in on a spring-shaped linear() easing
+ * Delays come from --d set inline. All of it is skipped for reduced motion.
+ * ───────────────────────────────────────────────────────────────────────────── */
+.hero-in {
+  animation: gfHeroIn 1s cubic-bezier(0.25, 0.1, 0.25, 1) var(--d, 0s) both;
+}
+.hero-window-in {
+  animation: gfHeroWindow 1.4s cubic-bezier(0.455, 0.03, 0.515, 0.955) var(--d, 0s) both;
+  transform-origin: 50% 0%;
+}
+.hero-glow-flash {
+  animation: gfHeroGlow 2.2s ease-out var(--d, 0s) both;
+}
+.hero-scan {
+  animation: gfHeroScan 2.6s cubic-bezier(0.455, 0.03, 0.515, 0.955) var(--d, 0s) 1 both;
+}
+.hero-resolve {
+  animation: gfHeroResolve 0.5s ease-out var(--d, 0s) both;
+}
+.hero-bar {
+  transform-origin: left center;
+  animation: gfHeroBar 1.1s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both;
+}
+.hero-pop {
+  animation: gfHeroPop 0.6s linear(0, 0.13 7%, 0.36 14%, 0.57 21%, 0.73 28%, 0.84 35%, 0.92 42%, 0.97 50%, 1.01 60%, 1.02 70%, 1.01 85%, 1) var(--d, 0s) both;
+}
+.hero-shine {
+  background: linear-gradient(110deg, transparent 30%, rgba(231, 215, 193, 0.22) 50%, transparent 70%) no-repeat;
+  background-size: 250% 100%;
+  animation: gfHeroShine 4.5s ease-in-out 1.5s infinite;
+}
+.hero-caret {
+  animation: gfHeroCaret 1s steps(1) infinite;
+}
+
+/* Content swap when the preview moves to the next file */
+.hero-swap {
+  animation: gfHeroSwap 0.45s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+/* Light travelling around the window border ("border beam") */
+@property --hero-beam {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.hero-beam {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--hero-beam),
+    transparent 0deg 250deg,
+    rgba(212, 175, 55, 0.55) 300deg,
+    rgba(192, 57, 43, 0.9) 340deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: gfHeroBeam 7s linear infinite;
+}
+/* Pulse running along a call-flow connector */
+.hero-flow-pulse {
+  animation: gfHeroFlow 1.8s cubic-bezier(0.455, 0.03, 0.515, 0.955) var(--d, 0s) infinite;
+}
+/* Risk gauge stroke filling in */
+.hero-ring {
+  animation: gfHeroRing 1.2s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both;
+}
+
+@keyframes gfHeroSwap {
+  from { opacity: 0; filter: blur(4px); transform: translateY(6px); }
+  to   { opacity: 1; filter: blur(0);   transform: none; }
+}
+@keyframes gfHeroBeam {
+  to { --hero-beam: 360deg; }
+}
+@keyframes gfHeroFlow {
+  from { left: 0%;   opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  to   { left: 100%; opacity: 0; }
+}
+@keyframes gfHeroRing {
+  from { stroke-dashoffset: var(--ring-len); }
+}
+@keyframes gfHeroIn {
+  from { opacity: 0; filter: blur(10px); transform: translateY(20%); }
+  to   { opacity: 1; filter: blur(0);    transform: none; }
+}
+@keyframes gfHeroWindow {
+  from { opacity: 0; transform: perspective(1600px) translateY(48px) rotateX(14deg) scale(0.97); }
+  to   { opacity: 1; transform: perspective(1600px) translateY(0)    rotateX(0)     scale(1); }
+}
+@keyframes gfHeroGlow {
+  0%   { opacity: 0; }
+  35%  { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+@keyframes gfHeroScan {
+  from { transform: translateY(-100%); opacity: 1; }
+  90%  { opacity: 1; }
+  to   { transform: translateY(1200%); opacity: 0; }
+}
+@keyframes gfHeroResolve {
+  from { background-color: #d4af37; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.25); }
+  to   { background-color: #34d399; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+@keyframes gfHeroBar {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes gfHeroPop {
+  from { opacity: 0; transform: translateY(14px) scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes gfHeroShine {
+  0%, 55% { background-position: 130% 0; }
+  100%    { background-position: -30% 0; }
+}
+@keyframes gfHeroCaret {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-in, .hero-window-in, .hero-glow-flash, .hero-scan, .hero-resolve,
+  .hero-bar, .hero-pop, .hero-shine, .hero-caret, .hero-swap, .hero-beam,
+  .hero-flow-pulse, .hero-ring {
+    animation: none !important;
+  }
+  .hero-scan, .hero-flow-pulse { display: none; }
+  .hero-resolve { background-color: #34d399; }
 }
 
 /* ── Keyframe animations ── */

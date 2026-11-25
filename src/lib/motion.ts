@@ -100,6 +100,11 @@ export const variants = {
     hidden:  { opacity: 0, y: 6 },
     visible: { opacity: 1, y: 0 },
   },
+  /** Blur + rise, matching the hero copy — CSS-only (globals.css: gfBlurUp) */
+  blurUp: {
+    hidden:  { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0  },
+  },
 } as const;
 
 export type MotionVariant = keyof typeof variants;

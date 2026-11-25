@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid owner or name" }, { status: 400 });
     }
 
-    const cacheKey = `${userId}:${owner}/${name}`;
+    const cacheKey = `v2:${userId}:${owner}/${name}`;
     if (!forceRefresh) {
       const cached = getCachedDiagram(cacheKey);
       if (cached) {
@@ -87,22 +87,24 @@ export async function POST(request: NextRequest) {
       "",
       '6) "dependencies": An array of 5-8 strings listing the most important npm/pip/etc dependencies.',
       "",
-      '7) "mermaidArchitecture": A Mermaid diagram (flowchart or graph) showing the high-level architecture.',
-      "   - Direction: graph TD (top-down).",
-      "   - Node IDs: SINGLE WORDS (alphanumeric, no spaces). Example: AuthService (NOT \"Auth Service\").",
-      '   - Labels: Always quoted. Example: A["User Login"] --> B["Auth API"].',
+      '7) "mermaidArchitecture": A layered Mermaid flowchart of the high-level architecture.',
+      "   - First line: flowchart TB",
+      "   - Think in 3-4 tiers top to bottom, the way requests travel (entry/UI, then core logic, then data/external services). Do NOT use subgraph.",
+      "   - 8-12 nodes total, 2-4 nodes per tier. Labels are 1-3 words.",
+      "   - Edges point downward to the next tier. Avoid edges that skip tiers or point back up. At most 3 outgoing edges per node.",
+      "   - Declare every node first, tier by tier, then list all edges.",
+      "   - Node IDs: SINGLE WORDS (alphanumeric, no spaces), starting with a capital letter. Example: AuthService.",
+      '   - Labels: Always quoted and in square brackets. Example: AuthService["Auth API"]. No other shapes, no edge labels, no styling or classDef.',
       "   - Use valid Mermaid syntax ONLY - no markdown, no code fences, no JSON escaping, no prose.",
-      "   - Keep it clear: 8-12 nodes max.",
       "   - Ensure every [ has a matching ], every quote is closed, and no trailing semicolons.",
       "",
-      '8) "mermaidDataFlow": A Mermaid sequenceDiagram or flowchart showing data flow through the system.',
-      "   - If flowchart: still graph TD.",
-      "   - Node IDs: SINGLE WORDS (alphanumeric, no spaces).",
-      '   - Labels: Always quoted. Example: A["API"] --> B["DB"].',
+      '8) "mermaidDataFlow": A Mermaid sequenceDiagram showing how one typical request moves through the system.',
+      "   - First line: sequenceDiagram, second line: autonumber",
+      "   - Declare 4-6 participants first, left to right in the order they are reached, using aliases: participant UI as Browser",
+      "   - Then 6-10 messages. Use ->> for calls and -->> for returns. Message text is a short verb phrase (2-5 words).",
+      "   - No notes, loops, alt blocks, activations or styling.",
       "   - Use valid Mermaid syntax ONLY - no markdown, no code fences, no JSON escaping, no prose.",
-      "   - Keep it clear: 6-10 steps max.",
-      "   - Ensure all quotes and brackets are properly closed; no trailing semicolons.",
-      "   - For the mermaidDataFlow diagram, every Mermaid participant and arrow definition MUST be on its own line. Do NOT combine multiple participants or arrows on a single line.",
+      "   - Every participant and every message MUST be on its own line.",
       "",
       "Repository information:",
       `- Owner: ${owner}`,

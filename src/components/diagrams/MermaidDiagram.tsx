@@ -5,11 +5,43 @@ import mermaid from "mermaid";
 
 mermaid.initialize({
   startOnLoad: false,
-  theme: "dark",
+  theme: "base",
   securityLevel: "loose",
   fontFamily: "inherit",
   fontSize: 14,
   logLevel: "error",
+  themeVariables: {
+    darkMode: true,
+    background: "transparent",
+    fontSize: "14px",
+    primaryColor: "#1c1915",
+    primaryTextColor: "#e7d7c1",
+    primaryBorderColor: "#7a6745",
+    secondaryColor: "#1c1915",
+    tertiaryColor: "#14110e",
+    lineColor: "#9c8a6c",
+    textColor: "#e7d7c1",
+    clusterBkg: "#14110e",
+    clusterBorder: "#4a3f2c",
+    titleColor: "#d4af37",
+    edgeLabelBackground: "#101011",
+    actorBkg: "#1c1915",
+    actorBorder: "#7a6745",
+    actorTextColor: "#e7d7c1",
+    actorLineColor: "#4a3f2c",
+    signalColor: "#9c8a6c",
+    signalTextColor: "#e7d7c1",
+    labelBoxBkgColor: "#1c1915",
+    labelBoxBorderColor: "#7a6745",
+    labelTextColor: "#e7d7c1",
+    noteBkgColor: "#2a2418",
+    noteBorderColor: "#7a6745",
+    noteTextColor: "#e7d7c1",
+    sequenceNumberColor: "#101011",
+  },
+  // Right-angle edges and even spacing keep layered diagrams readable.
+  flowchart: { curve: "step", nodeSpacing: 36, rankSpacing: 56, padding: 14, diagramPadding: 12, useMaxWidth: true },
+  sequence: { mirrorActors: false, actorMargin: 56, messageMargin: 32, boxMargin: 8, wrap: true, useMaxWidth: true },
 });
 
 interface MermaidDiagramProps {
@@ -396,6 +428,7 @@ export function MermaidDiagram({ code, id = "mermaid-diagram", onError }: Mermai
       )}
       <div
         ref={ref}
+        className="flex justify-center [&_svg]:h-auto"
         style={{
           willChange: "transform",
           transform: "translateZ(0)",

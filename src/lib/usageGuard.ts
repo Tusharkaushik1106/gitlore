@@ -34,7 +34,15 @@ export async function reserveUsage(
   req: Request,
   estimatedTokens: number,
 ): Promise<{ allowed: boolean; reason?: string; retryAfter?: number }> {
-  const own = await checkAndRecordUsage(getClientId(req), estimatedTokens);
+  return reserveUsageFor(getClientId(req), estimatedTokens);
+}
+
+/** Same as reserveUsage, for callers identified some other way than their IP (e.g. an MCP key). */
+export async function reserveUsageFor(
+  clientId: string,
+  estimatedTokens: number,
+): Promise<{ allowed: boolean; reason?: string; retryAfter?: number }> {
+  const own = await checkAndRecordUsage(clientId, estimatedTokens);
   if (!own.allowed) return own;
 
   const site = await checkAndRecordUsage("global", estimatedTokens, GLOBAL_LIMITS);

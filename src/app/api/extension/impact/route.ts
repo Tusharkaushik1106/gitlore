@@ -1,25 +1,9 @@
 import { NextRequest } from "next/server";
-import { claudeAdapter } from "@/lib/claude_adapter";
-import type { NarrationMessage } from "@/lib/types";
-import { hasExtensionKey, extensionUsageDenied } from "@/lib/extensionAuth";
-import { estimateTokens } from "@/lib/tokenUsage";
+import { hasExtensionKey } from "@/lib/extensionAuth";
+import { getClientId } from "@/lib/usageGuard";
+import { checkImpact, UsageDeniedError } from "@/lib/codeReview";
 
 export const runtime = "nodejs";
-
-function calculateComplexityScore(codeSnippet: string): number {
-  const length = codeSnippet.length;
-  const importMatches = codeSnippet.match(/^import\s+/gm) || [];
-  const importCount = importMatches.length;
-
-  // Base score from length (0-60 points, normalized for typical code snippets)
-  const lengthScore = Math.min(60, (length / 1000) * 60);
-
-  // Import complexity (0-40 points, with diminishing returns)
-  const importScore = Math.min(40, importCount * 8);
-
-  const totalScore = Math.min(100, Math.round(lengthScore + importScore));
-  return totalScore;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,72 +12,18 @@ export async function POST(req: NextRequest) {
     }
 
     const body: { codeSnippet?: string } = await req.json();
-
     if (!body.codeSnippet || typeof body.codeSnippet !== "string") {
       return Response.json({ error: "Missing codeSnippet" }, { status: 400 });
     }
 
-    const codeSnippet = body.codeSnippet.slice(0, 5000);
-
-    const denied = await extensionUsageDenied(req, estimateTokens(codeSnippet) + 500);
-    if (denied) {
-      return Response.json({ error: denied.reason, retryAfter: denied.retryAfter }, { status: 429 });
-    }
-
-    const complexityScore = calculateComplexityScore(codeSnippet);
-
-    const messages: NarrationMessage[] = [
-      {
-        id: "impact-prompt",
-        role: "user",
-        content: `Analyze this code snippet. Identify specific risks: PII, Auth, External APIs, or Database Writes. Return a JSON object with: riskLabel (string), riskColor (hex string), summary (string). Keep it concise.\n\n\`\`\`\n${codeSnippet}\n\`\`\`\n\nReturn only valid JSON, no markdown formatting.`,
-        createdAt: new Date().toISOString(),
-      },
-    ];
-
-    const completion = await claudeAdapter.chat({
-      messages,
-      config: {
-        streaming: false,
-      },
-    });
-
-    // Parse JSON response from Claude
-    let riskData: { riskLabel: string; riskColor: string; summary: string };
-    try {
-      const jsonMatch = completion.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        riskData = JSON.parse(jsonMatch[0]);
-      } else {
-        // Fallback if JSON parsing fails
-        riskData = {
-          riskLabel: "Unknown",
-          riskColor: "#888888",
-          summary: completion.content,
-        };
-      }
-    } catch (parseError) {
-      // Fallback if JSON parsing fails
-      riskData = {
-        riskLabel: "Unknown",
-        riskColor: "#888888",
-        summary: completion.content,
-      };
-    }
-
-    return Response.json({
-      riskLabel: riskData.riskLabel,
-      riskColor: riskData.riskColor,
-      summary: riskData.summary,
-      score: complexityScore,
-    });
+    const { riskLabel, riskColor, summary, score } = await checkImpact(getClientId(req), body.codeSnippet);
+    return Response.json({ riskLabel, riskColor, summary, score });
   } catch (error: unknown) {
+    if (error instanceof UsageDeniedError) {
+      return Response.json({ error: error.reason, retryAfter: error.retryAfter }, { status: 429 });
+    }
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Impact endpoint error:", errorMessage);
-    return Response.json(
-      { error: errorMessage || "Internal server error" },
-      { status: 500 }
-    );
+    return Response.json({ error: errorMessage || "Internal server error" }, { status: 500 });
   }
 }
-

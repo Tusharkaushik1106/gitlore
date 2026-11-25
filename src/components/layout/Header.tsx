@@ -42,6 +42,7 @@ function Brand() {
 const MARKETING_LINKS = [
   { label: "How it works", href: "/#how-it-works" },
   { label: "Extension",    href: "/#extension"    },
+  { label: "MCP",          href: "/#mcp"          },
   { label: "Changelog",    href: "/changelog"     },
 ];
 

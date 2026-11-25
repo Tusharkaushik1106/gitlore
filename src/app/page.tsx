@@ -6,6 +6,7 @@ import { SelfSelectionCards }   from "@/components/sections/landing/SelfSelectio
 import { FeatureWalkthrough }   from "@/components/sections/landing/FeatureWalkthrough";
 import { HowItWorks }           from "@/components/sections/landing/HowItWorks";
 import { ExtensionSpotlight }   from "@/components/sections/landing/ExtensionSpotlight";
+import { McpSpotlight }         from "@/components/sections/landing/McpSpotlight";
 import { FreeTierTransparency } from "@/components/sections/landing/FreeTierTransparency";
 import { FinalCTA }             from "@/components/sections/landing/FinalCTA";
 import { SiteFooter }           from "@/components/sections/landing/SiteFooter";
@@ -22,6 +23,7 @@ import { SiteFooter }           from "@/components/sections/landing/SiteFooter";
 //   6. FeatureWalkthrough — tabbed product capability deep-dive
 //   7. HowItWorks         — 3-step process (anchor: #how-it-works)
 //   8. ExtensionSpotlight — VS Code extension CTA (anchor: #extension)
+//   8b. McpSpotlight      — personal MCP link for Claude / Cursor (anchor: #mcp)
 //   9. FreeTierTransparency— explicit free-tier details (trust signal)
 //  10. FinalCTA           — repeat analyze form for late converters
 //  11. SiteFooter         — links + legal
@@ -41,6 +43,7 @@ export default function Home() {
       <FeatureWalkthrough />
       <HowItWorks />
       <ExtensionSpotlight />
+      <McpSpotlight />
       <FreeTierTransparency />
       <FinalCTA />
       <SiteFooter />

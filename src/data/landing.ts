@@ -217,13 +217,6 @@ export const EXTENSION_FEATURES: string[] = [
   "Zero login required for public repos",
 ];
 
-export const MCP_FEATURES: string[] = [
-  "score_risk: a 1-10 risk score with a one-line reason",
-  "check_impact: flags code touching PII, auth, external APIs or database writes",
-  "explain_file: purpose, key parts and where a file fits",
-  "Free, no sign-up: your link is your key",
-];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // FreeTierTransparency
 // ─────────────────────────────────────────────────────────────────────────────

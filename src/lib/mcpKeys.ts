@@ -3,8 +3,8 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 /**
  * Self-serve MCP keys: `gl_` + a random id + an HMAC of that id.
  * The signature proves gitlore issued the key, so nothing needs storing.
- * shortcut: the only revocation is rotating MCP_SIGNING_SECRET, which revokes every key;
- * add a revoked-id list if single keys ever need revoking.
+ * Revoke one key by adding it (or its link) to MCP_REVOKED_KEYS, comma-separated;
+ * rotate MCP_SIGNING_SECRET to revoke every key at once.
  */
 
 const KEY_FORMAT = /^gl_([0-9a-f]{32})([0-9a-f]{32})$/;
@@ -35,5 +35,28 @@ export function verifyMcpKey(key: string | undefined): string | null {
   const match = key?.match(KEY_FORMAT);
   if (!secret || !match) return null;
   const [, id, signature] = match;
-  return timingSafeEqual(Buffer.from(signature), Buffer.from(sign(id, secret))) ? id : null;
+  if (!timingSafeEqual(Buffer.from(signature), Buffer.from(sign(id, secret)))) return null;
+  return revokedIds().has(id) ? null : id;
+}
+
+/** Ids of keys listed in MCP_REVOKED_KEYS; entries may be keys, links, or bare ids. */
+function revokedIds(): Set<string> {
+  const ids = (process.env.MCP_REVOKED_KEYS ?? "").match(/[0-9a-f]{64}|[0-9a-f]{32}/g) ?? [];
+  return new Set(ids.map((hex) => hex.slice(0, 32)));
+}
+
+/**
+ * True for a request a browser sent from another site. Browsers label requests with
+ * Sec-Fetch-Site (or at least Origin); MCP clients and other tools send neither.
+ */
+export function isCrossSiteBrowserRequest(req: Request): boolean {
+  const fetchSite = req.headers.get("sec-fetch-site");
+  if (fetchSite) return fetchSite !== "same-origin" && fetchSite !== "none";
+  const origin = req.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host !== req.headers.get("host");
+  } catch {
+    return true;
+  }
 }

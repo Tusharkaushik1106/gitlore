@@ -9,6 +9,14 @@ const GLOBAL_LIMITS = {
   perMinute: 120,
 };
 
+// MCP keys are free to mint, so MCP traffic gets its own slice of the site budget:
+// a flood of keys can exhaust this pool but never starve the website.
+const MCP_POOL_LIMITS = {
+  dailyTokens: Number(process.env.MCP_DAILY_TOKEN_LIMIT) || 500_000,
+  dailyRequests: 5_000,
+  perMinute: 60,
+};
+
 /**
  * Stable anonymous id for the caller, derived from their IP address.
  * The address is hashed so raw IPs are never kept, even in memory.
@@ -44,6 +52,17 @@ export async function reserveUsageFor(
 ): Promise<{ allowed: boolean; reason?: string; retryAfter?: number }> {
   const own = await checkAndRecordUsage(clientId, estimatedTokens);
   if (!own.allowed) return own;
+
+  if (clientId.startsWith("mcp:")) {
+    const pool = await checkAndRecordUsage("global-mcp", estimatedTokens, MCP_POOL_LIMITS);
+    if (!pool.allowed) {
+      return {
+        allowed: false,
+        reason: "gitlore's MCP server has reached its shared capacity for now. Please try again later.",
+        retryAfter: pool.retryAfter,
+      };
+    }
+  }
 
   const site = await checkAndRecordUsage("global", estimatedTokens, GLOBAL_LIMITS);
   if (!site.allowed) {

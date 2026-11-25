@@ -54,11 +54,11 @@ flowchart TD
 
 The server tells agents to flag a risk score of 7+ or any change touching PII, Auth or Database write to the user before committing.
 
-**Access:** every call needs a personal key. Visitors get one free, without signing up, from the "MCP server" section of the home page (`/#mcp`), which calls `POST /api/mcp-key` (capped at 5 keys per visitor per day). Keys are signed with `MCP_SIGNING_SECRET`, so nothing is stored; changing that secret revokes every key. Usage is metered per key, because connector traffic such as claude.ai's arrives from the platform's IPs, and the site-wide daily budget still applies on top.
+**Access:** every call needs a personal key. Visitors get one free, without signing up, from the "Use gitlore in your agent" section of the home page (`/#mcp`), which calls `POST /api/mcp-key`. Keys are signed with `MCP_SIGNING_SECRET`, so nothing is stored. Revoke one key by adding it to `MCP_REVOKED_KEYS`; change the secret to revoke every key. Usage is metered per key, because connector traffic such as claude.ai's arrives from the platform's IPs, and the site-wide daily budget still applies on top.
 
 The key goes in the URL, `https://gitlore.app/api/mcp/<key>`, so it works anywhere that accepts a server URL, including Claude's custom connectors. Clients that can send headers can use `https://gitlore.app/api/mcp` with `Authorization: Bearer <key>` instead.
 
-**Claude (web or desktop):** Settings → Connectors → Add custom connector, then paste the link.
+**Claude (web or desktop):** Customize → Connectors → Add custom connector, then paste the link.
 
 **Claude Code:**
 ```bash
@@ -69,6 +69,17 @@ claude mcp add --transport http gitlore https://gitlore.app/api/mcp/<key>
 ```json
 { "mcpServers": { "gitlore": { "url": "https://gitlore.app/api/mcp/<key>" } } }
 ```
+
+The home page has copy-ready setup for Claude Code, Claude, Codex, Cursor, VS Code and any other client.
+
+**Security**
+- Keys are HMAC-signed and compared in constant time; forged, edited or revoked keys get a 401.
+- Usage is metered per key, and all MCP traffic shares its own daily pool (`MCP_DAILY_TOKEN_LIMIT`, default 500k tokens) inside the site-wide budget, so a flood of free keys can't starve the website.
+- Key minting is capped per visitor (5/day) and site-wide (1,000/day), refused from other websites' pages, and never cached.
+- Browser requests from other origins are refused (403), as the MCP spec requires against DNS rebinding.
+- Submitted code is fenced as untrusted data in every prompt, so text inside it that tries to steer the review is ignored and counted as a red flag.
+- Tools are read-only: they never fetch URLs, touch files or run code, and inputs are size-capped before reaching the model.
+- Limits live in server memory, so on Vercel they apply per running instance; the hard spend ceiling is the monthly limit in the Claude Console.
 
 ## Frontend experience
 - **Dashboard:** Radar chart for stack balance, hotspots list, and project overview with diagrams (`ProjectOverview`).
@@ -89,6 +100,8 @@ Required for core features:
 - `GLOBAL_DAILY_TOKEN_LIMIT` — Optional; site-wide daily token budget, defaults to 2,000,000.
 - `EXTENSION_SECRET` — Shared key the VS Code extension sends to `/api/extension/*`.
 - `MCP_SIGNING_SECRET` — 32+ random characters used to sign MCP keys. The MCP server and key endpoint stay off until it's set.
+- `MCP_REVOKED_KEYS` — Optional; comma-separated MCP keys (or links) to block.
+- `MCP_DAILY_TOKEN_LIMIT` — Optional; daily token pool shared by all MCP keys, defaults to 500,000.
 - Optional vector store placeholders: `VECTOR_DB_URL`, `VECTOR_DB_KEY`, `VECTOR_DB_PROVIDER`.
 
 Rate limits (enforced in `tokenUsage.ts`):

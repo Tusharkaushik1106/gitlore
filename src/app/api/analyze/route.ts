@@ -37,11 +37,30 @@ function parseGitHubUrl(url: string): { owner: string; name: string } | null {
 
 type StackSubject = "Frontend" | "Backend" | "Auth" | "Infra" | "DX";
 
+const CODE_FILE = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rb|java|cs|rs|php|kt|swift)$/i;
+// Vendored, generated, fixture and minified files are big but say nothing about the repo's own code.
+const NOT_OWN_CODE =
+  /(^|\/)(node_modules|vendor|third_party|compiled|dist|build|out|coverage|\.next|examples?|fixtures?|__fixtures__|__snapshots__|__generated__|generated)\/|\.(min|bundle)\.js$|\.d\.ts$/i;
+const TEST_FILE = /(^|\/)(__tests__|tests?|e2e)\/|\.(test|spec)\.[a-z]+$/i;
+const LANGUAGE_BY_EXT: Record<string, string> = {
+  ts: "TypeScript", tsx: "TypeScript", js: "JavaScript", jsx: "JavaScript", mjs: "JavaScript", cjs: "JavaScript",
+  py: "Python", go: "Go", rb: "Ruby", java: "Java", cs: "C#", rs: "Rust", php: "PHP", kt: "Kotlin", swift: "Swift",
+};
+
+type RepoInsights = {
+  totalFiles: number;
+  sourceFiles: number;
+  testFiles: number;
+  languages: { name: string; share: number }[];
+  topFolders: { name: string; files: number }[];
+};
+
 function calculateRepoStats(
   entries: Array<{ path: string; type?: string; size?: number }>,
 ): {
   stackRadar: { subject: StackSubject; value: number }[];
   hotspots: { path: string; complexity: number }[];
+  insights: RepoInsights;
 } {
   const fileEntries = entries.filter((entry) => entry.type !== "tree");
   const subjectScores: Record<StackSubject, number> = {
@@ -102,14 +121,39 @@ function calculateRepoStats(
     }),
   );
 
-  const sortedBySize = [...fileEntries].sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
-  const maxSize = sortedBySize.length > 0 ? Math.max(...sortedBySize.map((entry) => entry.size ?? 0)) : 0;
+  const ownCode = fileEntries.filter((e) => CODE_FILE.test(e.path) && !NOT_OWN_CODE.test(e.path));
+  const sourceCode = ownCode.filter((e) => !TEST_FILE.test(e.path));
+
+  // shortcut: file size stands in for complexity because the tree API gives no file contents.
+  const sortedBySize = [...sourceCode].sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+  const maxSize = sortedBySize[0]?.size ?? 0;
   const hotspots = sortedBySize.slice(0, 5).map((entry) => ({
     path: entry.path,
     complexity: maxSize > 0 ? Math.round(40 + (60 * (entry.size ?? 0)) / maxSize) : 50,
   }));
 
-  return { stackRadar, hotspots };
+  const countBy = (keys: string[]) => {
+    const counts = new Map<string, number>();
+    for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const languages = countBy(ownCode.map((e) => LANGUAGE_BY_EXT[e.path.split(".").pop()!.toLowerCase()]))
+    .slice(0, 4)
+    .map(([name, n]) => ({ name, share: Math.round((100 * n) / ownCode.length) }))
+    .filter((lang) => lang.share > 0);
+  const topFolders = countBy(sourceCode.map((e) => (e.path.includes("/") ? e.path.split("/")[0] : "(root)")))
+    .slice(0, 3)
+    .map(([name, files]) => ({ name, files }));
+
+  const insights: RepoInsights = {
+    totalFiles: fileEntries.length,
+    sourceFiles: sourceCode.length,
+    testFiles: ownCode.length - sourceCode.length,
+    languages,
+    topFolders,
+  };
+
+  return { stackRadar, hotspots, insights };
 }
 
 async function buildElevatorPitch(
@@ -270,14 +314,12 @@ export async function POST(req: NextRequest) {
     const optimizedReadme = readme ? readme.slice(0, 1500) : "[no readme]";
 
     const tree = await treePromise;
-    const { stackRadar, hotspots } = calculateRepoStats(tree);
+    const { stackRadar, hotspots, insights } = calculateRepoStats(tree);
 
     const codeEntries = tree.filter(
       (entry) =>
         entry.type === "blob" &&
-        /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rb|java|cs|rs|php|kt|swift)$/i.test(
-          entry.path,
-        ),
+        CODE_FILE.test(entry.path),
     );
 
     const limited = codeEntries.slice(0, 25);
@@ -425,6 +467,7 @@ export async function POST(req: NextRequest) {
       elevatorPitch,
       stackRadar,
       hotspots,
+      insights,
       sampleFileTree,
       fullFileTree: allEntries, 
       sampleCode,

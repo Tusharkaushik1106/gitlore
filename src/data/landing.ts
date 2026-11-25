@@ -10,7 +10,6 @@
  */
 
 import {
-  GitFork, Network, MessageSquare, Zap,
   Clock, Users, BookOpen,
   UserPlus, GitMerge, Eye,
   Link2, Cpu, SearchCode,
@@ -20,12 +19,6 @@ import type { ComponentType } from "react";
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared types (used by block components + landing section wrappers)
 // ─────────────────────────────────────────────────────────────────────────────
-
-export interface CapabilityItem {
-  icon:  ComponentType<{ className?: string }>;
-  label: string;
-  color: string;
-}
 
 export interface FeatureItem {
   icon:         ComponentType<{ className?: string }>;
@@ -86,12 +79,79 @@ export interface FreeInclude {
 // HeroSection
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PREVIEW_CAPABILITIES: CapabilityItem[] = [
-  { icon: GitFork,       label: "File-tree AST",  color: "text-tomato-jam/80"    },
-  { icon: Network,       label: "Call graphs",     color: "text-metallic-gold/80" },
-  { icon: MessageSquare, label: "RAG Q&A",         color: "text-fg/55"            },
-  { icon: Zap,           label: "60-second scan",  color: "text-tomato-jam/80"    },
-];
+/** Rolls through the end of the headline: "Speak fluent ___". The first is the resting word. */
+export const HERO_WORDS: string[] = ["repository", "Next.js", "React", "Rust", "Django", "Go"];
+
+/** One-click examples under the analyze form. */
+export const HERO_SAMPLE_REPOS: string[] = ["vercel/next.js", "facebook/react", "expressjs/express"];
+
+/** What the product window in the hero plays through. It cycles through `walkthrough`. */
+export const HERO_PREVIEW = {
+  repo: "vercel/next.js",
+  branch: "canary",
+  sourceFiles: "4,085",
+  /** File tree; `depth` indents, `id` links a file to its walkthrough step. */
+  tree: [
+    { name: "packages/next/src", kind: "dir", depth: 0 },
+    { name: "server", kind: "dir", depth: 1 },
+    { name: "app-render.tsx", kind: "file", depth: 2, id: "app-render" },
+    { name: "base-server.ts", kind: "file", depth: 2, id: "base-server" },
+    { name: "shared/lib/router", kind: "dir", depth: 1 },
+    { name: "router.ts", kind: "file", depth: 2, id: "router" },
+    { name: "client", kind: "dir", depth: 1 },
+    { name: "index.tsx", kind: "file", depth: 2 },
+    { name: "turbopack/crates", kind: "dir", depth: 0 },
+  ] as { name: string; kind: "dir" | "file"; depth: number; id?: string }[],
+  walkthrough: [
+    {
+      id: "app-render",
+      file: "app-render.tsx",
+      summary:
+        "Renders an App Router request on the server. It builds the React tree for the matched route, streams HTML as segments resolve, and hands the client the payload it needs to hydrate.",
+      flow: ["request", "renderToHTMLOrFlight", "RSC payload", "HTML stream"],
+      pieces: ["renderToHTMLOrFlight", "createFlightRouterState"],
+      question: "Where does streaming start?",
+      answer: "In renderToHTMLOrFlight, as soon as the first segment resolves.",
+    },
+    {
+      id: "base-server",
+      file: "base-server.ts",
+      summary:
+        "The base class every Next.js server extends. It normalizes the incoming request, matches it to a route, and decides whether to serve a static file, a cached page or a fresh render.",
+      flow: ["handleRequest", "match route", "cache?", "renderToResponse"],
+      pieces: ["handleRequest", "renderToResponse"],
+      question: "When is a cached page served?",
+      answer: "renderToResponse checks the response cache before rendering again.",
+    },
+    {
+      id: "router",
+      file: "router.ts",
+      summary:
+        "The Pages Router on the client. It turns link clicks into route changes, prefetches pages ahead of time, and keeps the URL, history and rendered page in sync.",
+      flow: ["<Link>", "router.push", "change", "render page"],
+      pieces: ["push", "prefetch", "change"],
+      question: "What happens on a link click?",
+      answer: "router.push calls change, which loads the page and updates history.",
+    },
+  ],
+  hotspots: [
+    { name: "app-render.tsx", id: "app-render", score: 0.94 },
+    { name: "base-server.ts", id: "base-server", score: 0.81 },
+    { name: "router.ts", id: "router", score: 0.66 },
+    { name: "aggregation_update.rs", id: "", score: 0.52 },
+  ],
+  languages: [
+    { name: "TypeScript", share: 53 },
+    { name: "JavaScript", share: 41 },
+    { name: "Rust", share: 5 },
+  ],
+  /** What the agent got back when it checked the visitor's own last change through MCP. */
+  risk: {
+    score: 8,
+    reason: "Builds a SQL query from request input without escaping it.",
+    touches: ["Database write", "PII"],
+  },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProblemStatement
@@ -165,17 +225,11 @@ export const PERSONAS: FeatureItem[] = [
 // CredibilityBar
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const INTEGRATIONS: ProofLogo[] = [
-  { name: "GitHub",        abbr: "GH"  },
-  { name: "VS Code",       abbr: "VSC" },
-  { name: "Claude",        abbr: "CLD" },
-  { name: "PostgreSQL",    abbr: "PG"  },
-];
-
-export const STATS: ProofStat[] = [
-  { value: "50K",  unit: "tokens/day",  label: "Context window per analysis"    },
-  { value: "RAG",  unit: "powered",     label: "Semantic search over your repo" },
-  { value: "100%", unit: "server-side", label: "Nothing stored client-side"     },
+/** Shown in the integrations bar; each count-up figure matches a real limit or count. */
+export const PROOF_STATS = [
+  { value: 50000, suffix: "", label: "free tokens a day", note: "per visitor, no account" },
+  { value: 100, suffix: "", label: "requests a day", note: "per visitor or MCP key" },
+  { value: 3, suffix: "", label: "MCP tools", note: "risk, impact, explain" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,23 +240,23 @@ export const STEPS: FeatureItem[] = [
   {
     icon:   Link2,
     step:   "01",
-    title:  "Drop a URL or ZIP",
-    body:   "Paste any public GitHub URL or upload a repository ZIP. gitlore accepts both — no installation, no config files, no CLI.",
-    detail: "github.com/owner/repo or repo.zip",
+    title:  "Paste a GitHub URL",
+    body:   "Any public GitHub repository. No install, no config files, no account.",
+    detail: "github.com/owner/repo",
   },
   {
     icon:   Cpu,
     step:   "02",
-    title:  "Watch it parse and embed",
-    body:   "gitlore clones, walks every file, builds ASTs, extracts exports and call graphs, then embeds everything into a searchable vector store. Takes about 60 seconds.",
-    detail: "Clone → Parse → Embed → Index",
+    title:  "gitlore reads the repo",
+    body:   "It fetches the file tree and README, indexes the source files that matter for search, and works out hotspots and the stack straight from the tree.",
+    detail: "Fetch → Index → Summarize",
   },
   {
     icon:   SearchCode,
     step:   "03",
-    title:  "Ask, explore, and understand",
-    body:   "Open the Cockpit Dashboard for the full file map, use OmniChat to ask precise questions, or generate architecture diagrams for any module.",
-    detail: "Dashboard · Chat · Diagrams",
+    title:  "Ask, explore, understand",
+    body:   "Open the dashboard for the file map and diagrams, ask the chat precise questions, or plug gitlore into your agent over MCP.",
+    detail: "Dashboard · Chat · Diagrams · MCP",
   },
 ];
 
@@ -241,22 +295,29 @@ export const TRUST_SIGNALS: string[] = [
 // LiveDemoStrip
 // ─────────────────────────────────────────────────────────────────────────────
 
+// gitlore analysing its own repository — real paths and function names.
 export const MOCK_FILES: MockFile[] = [
-  { name: "src/api/analyze/route.ts",   active: true  },
-  { name: "src/context/RepoContext.tsx", active: false },
-  { name: "src/lib/claude_adapter.ts",  active: false },
-  { name: "src/components/chat/",       active: false },
-  { name: "src/middleware.ts",          active: false },
+  { name: "src/app/api/analyze/route.ts", active: true  },
+  { name: "src/lib/usageGuard.ts",        active: false },
+  { name: "src/lib/claude_adapter.ts",    active: false },
+  { name: "src/lib/codeReview.ts",        active: false },
+  { name: "src/components/dashboard/",    active: false },
 ];
+
+export const MOCK_SUMMARY = {
+  file: "src/app/api/analyze/route.ts",
+  text: "POST endpoint that validates a GitHub URL, fetches the repo's metadata, README and file tree, indexes key source files for search, and asks Claude for an elevator pitch. Hotspots and stack stats come straight from the tree.",
+  exports: ["POST — analyze handler", "runtime — \"nodejs\""],
+};
 
 export const MOCK_QA: MockQA[] = [
   {
-    q: "Where is rate-limiting enforced?",
-    a: "In src/api/analyze/route.ts via the checkQuota() helper — 10 req/60 s per user, 100 req/day.",
+    q: "Where are usage limits enforced?",
+    a: "In src/lib/usageGuard.ts: reserveUsage() checks the visitor's daily allowance first, then the site-wide budget.",
   },
   {
-    q: "Which files own the streaming logic?",
-    a: "claude_adapter.ts emits chunks; the route handler pipes them through a TransformStream to the client.",
+    q: "Which file streams chat replies?",
+    a: "src/app/api/chat/route.ts streams Claude's reply as it arrives, through claude_adapter.ts.",
   },
 ];
 

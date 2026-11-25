@@ -73,19 +73,23 @@ export function SplitContentSection({
         )}
       >
         {/* ── Left: copy ──────────────────────────────────── */}
-        <Reveal variant="slideLeft">
+        <Reveal variant="blurUp">
           {/* Eyebrow badge */}
           {(eyebrow || EyebrowIcon) && (
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-fg/10 bg-fg/5 px-3.5 py-1.5">
-              {EyebrowIcon && <EyebrowIcon className="h-4 w-4 text-metallic-gold/80" />}
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-fg/10 bg-fg/[0.04] px-3 py-1">
+              {EyebrowIcon ? (
+                <EyebrowIcon className="h-3.5 w-3.5 text-metallic-gold/80" />
+              ) : (
+                <span className="h-1.5 w-1.5 rounded-full bg-tomato-jam shadow-[0_0_8px_2px_rgba(192,57,43,0.6)]" />
+              )}
               {eyebrow && (
-                <span className="text-xs font-semibold text-fg/60">{eyebrow}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-fg/55">{eyebrow}</span>
               )}
             </div>
           )}
 
           {/* Headline */}
-          <div className="text-3xl font-semibold tracking-tight text-fg sm:text-4xl mb-5">
+          <div className="mb-5 text-balance text-3xl font-semibold tracking-tight text-fg sm:text-[2.6rem] sm:leading-[1.1]">
             {headline}
           </div>
 
@@ -103,8 +107,10 @@ export function SplitContentSection({
           {checkList && checkList.length > 0 && (
             <ul className="space-y-2.5 mb-8">
               {checkList.map((feat) => (
-                <li key={feat} className="flex items-start gap-2.5 text-sm text-fg/65">
-                  <Check className="h-4 w-4 text-tomato-jam/80 shrink-0 mt-0.5" />
+                <li key={feat} className="flex items-start gap-3 text-sm text-fg/65">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e2553e] to-[#f2cb66] shadow-[0_0_12px_rgba(234,122,59,0.35)]">
+                    <Check className="h-3 w-3 text-[#1a1210]" strokeWidth={3} />
+                  </span>
                   {feat}
                 </li>
               ))}
@@ -142,7 +148,15 @@ export function SplitContentSection({
         </Reveal>
 
         {/* ── Right: panel slot ───────────────────────────── */}
-        <Reveal variant="slideRight" delay={0.1}>{rightPanel}</Reveal>
+        <Reveal variant="blurUp" delay={0.12}>
+          <div className="relative">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-10 rounded-[48px] bg-[radial-gradient(ellipse_at_center,rgba(192,57,43,0.15),transparent_65%)] blur-2xl"
+            />
+            <div className="relative">{rightPanel}</div>
+          </div>
+        </Reveal>
       </div>
     </SectionEnv>
   );

@@ -14,7 +14,8 @@ import { EXTENSION_FEATURES } from "@/data/landing";
 /** VS Code editor mockup rendered in the right panel slot */
 function EditorMockup() {
   return (
-    <div className="gf-card rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+    <div className="relative overflow-hidden rounded-2xl border border-fg/10 bg-[#141110]/85 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+      <div aria-hidden className="hero-beam" />
       {/* Editor chrome */}
       <div className="border-b border-fg/8 px-4 py-2.5 flex items-center gap-3 bg-fg/3">
         <div className="flex gap-1.5">
@@ -43,7 +44,7 @@ function EditorMockup() {
           <span className="w-4 text-right shrink-0">2</span>
           <span className="text-fg/30 pl-4">const quota = await checkQuota(userId);</span>
         </div>
-        <div className="flex gap-3 bg-tomato-jam/8 -mx-4 px-4 rounded">
+        <div className="ext-line-glow -mx-4 flex gap-3 rounded px-4">
           <span className="w-4 text-right shrink-0 text-fg/30">3</span>
           <span className="text-tomato-jam/80 pl-4">if (!quota.ok) return new Response(...);</span>
         </div>
@@ -60,7 +61,7 @@ function EditorMockup() {
       {/* gitlore inline annotation */}
       <div className="border-t border-fg/8 bg-fg/3 p-4">
         <div className="flex items-center gap-2 mb-2">
-          <div className="h-1.5 w-1.5 rounded-full bg-tomato-jam animate-pulse" />
+          <div className="h-1.5 w-1.5 rounded-full bg-tomato-jam shadow-[0_0_8px_2px_rgba(192,57,43,0.6)] animate-pulse" />
           <span className="text-[10px] font-semibold uppercase tracking-widest text-tomato-jam/70">
             gitlore · line 3
           </span>
@@ -70,6 +71,7 @@ function EditorMockup() {
           quota (checked via{" "}
           <span className="text-tomato-jam/80 font-mono">checkQuota()</span>),
           returns a 429 before any Claude call is made — keeping costs bounded.
+          <span className="hero-caret ml-0.5 inline-block h-3 w-[2px] translate-y-0.5 bg-tomato-jam" />
         </p>
       </div>
     </div>

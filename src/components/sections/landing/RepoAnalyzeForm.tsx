@@ -14,7 +14,8 @@ import { Button } from "@/components/ui";
 // DO NOT modify handleAnalyze, useRepoContext usage, or routing behavior.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function RepoAnalyzeForm() {
+/** `samples` ("owner/name") render as one-click chips that fill the input. */
+export function RepoAnalyzeForm({ samples }: { samples?: string[] } = {}) {
   const router = useRouter();
   const { startAnalysis } = useRepoContext();
   const [input, setInput] = useState("");
@@ -58,6 +59,22 @@ export function RepoAnalyzeForm() {
           Analyze
         </Button>
       </div>
+
+      {samples && samples.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[11px] text-fg/35">
+          <span className="mr-0.5">Try</span>
+          {samples.map((repo) => (
+            <button
+              key={repo}
+              type="button"
+              onClick={() => setInput(`https://github.com/${repo}`)}
+              className="rounded-full border border-fg/10 bg-fg/[0.03] px-2.5 py-1 font-mono text-fg/55 transition-colors hover:border-tomato-jam/40 hover:bg-tomato-jam/[0.06] hover:text-fg"
+            >
+              {repo}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Trust row */}
       <div className="mt-3.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] text-fg/30">

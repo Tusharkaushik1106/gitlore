@@ -10,7 +10,6 @@ import * as React from "react";
 import { DarkSection }       from "@/components/sections/DarkSection";
 import { LightSection }      from "@/components/sections/LightSection";
 import { NeutralSection }    from "@/components/sections/NeutralSection";
-import { SectionTransition } from "@/components/motion/SectionTransition";
 import type { SectionSpacing, SectionTag } from "@/components/sections/DarkSection";
 
 export type BlockEnvironment = "dark" | "light" | "neutral";
@@ -19,6 +18,7 @@ export interface SectionEnvProps {
   environment?: BlockEnvironment;
   spacing?:     SectionSpacing;
   as?:          SectionTag;
+  /** Light sections only: soft brand-tint blobs */
   atmosphere?:  boolean;
   fullBleed?:   boolean;
   id?:          string;
@@ -39,15 +39,15 @@ export function SectionEnv({
   style,
   children,
 }: SectionEnvProps) {
-  const shared = { spacing, as, atmosphere, fullBleed, id, className, style };
+  const shared = { spacing, as, fullBleed, id, className, style };
 
-  const inner = <SectionTransition>{children}</SectionTransition>;
-
+  // No section-level fade-in: sections appearing one by one made the page feel
+  // segmented. Elements inside still use Reveal where a block wants it.
   if (environment === "light") {
-    return <LightSection {...shared}>{inner}</LightSection>;
+    return <LightSection {...shared} atmosphere={atmosphere}>{children}</LightSection>;
   }
   if (environment === "neutral") {
-    return <NeutralSection {...shared}>{inner}</NeutralSection>;
+    return <NeutralSection {...shared}>{children}</NeutralSection>;
   }
-  return <DarkSection {...shared}>{inner}</DarkSection>;
+  return <DarkSection {...shared}>{children}</DarkSection>;
 }

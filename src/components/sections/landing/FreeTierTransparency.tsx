@@ -1,6 +1,7 @@
 import { Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { SplitContentSection } from "@/components/blocks/SplitContentSection";
+import { SpotlightCard } from "@/components/motion/fx";
 import { FREE_INCLUDES, TRUST_SIGNALS } from "@/data/landing";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ import { FREE_INCLUDES, TRUST_SIGNALS } from "@/data/landing";
 /** Privacy / trust card rendered in the right panel slot */
 function TrustCard() {
   return (
-    <div className="gf-card rounded-2xl p-6 border border-fg/8">
+    <SpotlightCard className="p-6">
       <div className="mb-6 flex items-center gap-2.5">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-tomato-jam/10">
           <ShieldCheck className="h-5 w-5 text-tomato-jam/80" />
@@ -41,7 +42,7 @@ function TrustCard() {
           Claude tokenizer (estimated). High-usage plans coming soon.
         </p>
       </div>
-    </div>
+    </SpotlightCard>
   );
 }
 

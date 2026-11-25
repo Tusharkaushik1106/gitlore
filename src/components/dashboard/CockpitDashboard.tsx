@@ -277,6 +277,67 @@ export function CockpitDashboard() {
                       ))}
                     </div>
                   )}
+
+                  {analysis?.insights && (
+                    <div className="relative z-10 mt-4 space-y-4 border-t border-fg/10 pt-4">
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: "Files", value: analysis.insights.totalFiles },
+                          { label: "Source", value: analysis.insights.sourceFiles },
+                          { label: "Tests", value: analysis.insights.testFiles },
+                        ].map((stat) => (
+                          <div key={stat.label} className="rounded-lg bg-fg/5 px-2 py-1.5 ring-1 ring-fg/10">
+                            <p className="text-[9px] uppercase tracking-[0.15em] text-fg/40">{stat.label}</p>
+                            <p className="text-sm font-semibold text-fg/85 tabular-nums">{stat.value.toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {analysis.insights.sourceFiles > 0 && (
+                        <p className="text-[11px] text-fg/55">
+                          {analysis.insights.testFiles === 0
+                            ? "No test files found."
+                            : `About ${Math.max(1, Math.round((100 * analysis.insights.testFiles) / analysis.insights.sourceFiles))} test files per 100 source files.`}
+                        </p>
+                      )}
+
+                      {analysis.insights.languages.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[9px] uppercase tracking-[0.15em] text-fg/40">Languages</p>
+                          <ul className="space-y-1.5">
+                            {analysis.insights.languages.map((lang) => (
+                              <li key={lang.name} className="text-[11px]">
+                                <div className="flex justify-between text-fg/70">
+                                  <span>{lang.name}</span>
+                                  <span className="tabular-nums text-fg/45">{lang.share}%</span>
+                                </div>
+                                <div className="mt-0.5 h-1 rounded-full bg-fg/10">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-tomato-jam to-metallic-gold"
+                                    style={{ width: `${lang.share}%` }}
+                                  />
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {analysis.insights.topFolders.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[9px] uppercase tracking-[0.15em] text-fg/40">Where the code lives</p>
+                          <ul className="space-y-1">
+                            {analysis.insights.topFolders.map((folder) => (
+                              <li key={folder.name} className="flex justify-between text-[11px]">
+                                <span className="truncate font-mono text-fg/70">{folder.name === "(root)" ? folder.name : `${folder.name}/`}</span>
+                                <span className="shrink-0 tabular-nums text-fg/45">{folder.files.toLocaleString()} files</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </motion.aside>
               </section>
 
@@ -302,7 +363,7 @@ export function CockpitDashboard() {
                           Hotspots
                         </p>
                         <p className="text-[11px] text-fg/60">
-                          Files with notable complexity or branching.
+                          Largest source files, the likeliest places for complexity.
                         </p>
                       </div>
                     </div>

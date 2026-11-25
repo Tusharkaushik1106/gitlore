@@ -20,6 +20,13 @@ export interface RepoAnalysis {
   elevatorPitch: string;
   stackRadar: StackRadarPoint[];
   hotspots: HotspotEntry[];
+  insights?: {
+    totalFiles: number;
+    sourceFiles: number;
+    testFiles: number;
+    languages: { name: string; share: number }[];
+    topFolders: { name: string; files: number }[];
+  };
   sampleFileTree: { path: string; language: string; complexity: "green" | "yellow" | "red" }[];
   fullFileTree?: Array<{
     path: string;
